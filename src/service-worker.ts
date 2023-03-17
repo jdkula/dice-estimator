@@ -14,6 +14,7 @@ import type { AttackSetup } from './routes/+page.svelte';
 
 export interface IncomingMessage {
 	nonce: number;
+	itersRequested: number;
 	setup: AttackSetup;
 }
 
@@ -55,9 +56,11 @@ function simulate(
 	const roll = (r: ParsedRoll, crits = true) => {
 		const result = roller.rollParsed(r);
 
-		if (crits) {
-			if (getCritical(result) === 'failure') return Number.NEGATIVE_INFINITY;
-			if (getCritical(result) === 'success') return Number.POSITIVE_INFINITY;
+		if (crits && setup.crits.failsMiss && getCritical(result) === 'failure') {
+			return Number.NEGATIVE_INFINITY;
+		}
+		if (crits && setup.crits.successesHit && getCritical(result) === 'success') {
+			return Number.POSITIVE_INFINITY;
 		}
 
 		return result.value;
@@ -81,7 +84,7 @@ function simulate(
 
 		numHit++;
 		let damage = roll(damageRoll, /* crits = */ false);
-		if (attackResult === Number.POSITIVE_INFINITY) damage *= 2;
+		if (setup.crits.successesCrit && attackResult === Number.POSITIVE_INFINITY) damage *= 2;
 
 		sum += damage;
 	}
@@ -148,11 +151,9 @@ sw.addEventListener('message', (event) => {
 		});
 	}
 
-	const kTrials = 1000;
-
 	const buckets = new Map<number, number>();
 	let numHit = 0;
-	for (let i = 0; i < kTrials; i++) {
+	for (let i = 0; i < data.itersRequested; i++) {
 		const [result, n] = simulate(roller, getRolls, data.setup);
 		numHit += n;
 		buckets.set(result, (buckets.get(result) ?? 0) + 1);
@@ -160,7 +161,7 @@ sw.addEventListener('message', (event) => {
 
 	event.source?.postMessage({
 		buckets: [...buckets],
-		numTrials: kTrials,
+		numTrials: data.itersRequested,
 		numHit: numHit,
 		nonce: data.nonce
 	} satisfies ReturnMessage);

@@ -10,6 +10,11 @@
 		adv?: AdvType;
 
 		versus: number | string;
+		crits: {
+			failsMiss: boolean;
+			successesHit: boolean;
+			successesCrit: boolean;
+		};
 	}
 </script>
 
@@ -28,6 +33,16 @@
 	let ac = persistentStore<string>('ac', '0');
 	let type = persistentStore<AdvType>('adv', 'normal');
 
+	let maxIters = persistentStore('maxIters', 2_000);
+	let trialsPerIter = persistentStore('perIter', 5_000);
+	$: maxTrials = $maxIters * $trialsPerIter;
+
+	let crits = persistentStore<AttackSetup['crits']>('crits', {
+		failsMiss: true,
+		successesCrit: true,
+		successesHit: true
+	});
+
 	let containerWidth: number = 0;
 
 	const buckets = new Map<number, number>();
@@ -40,7 +55,7 @@
 
 	const requestUpdate = async () => {
 		console.log('Trials@', nTrials);
-		if (nTrials >= 1_000_000) return;
+		if (nTrials >= maxTrials) return;
 
 		const registration = await navigator.serviceWorker.ready;
 		registration.active?.postMessage({
@@ -49,9 +64,11 @@
 				versus: $ac ?? 0,
 				attackRoll: $attackRoll,
 				damageRoll: $damageRoll,
-				adv: $type
+				adv: $type,
+				crits: $crits
 			},
-			nonce
+			nonce,
+			itersRequested: $trialsPerIter,
 		} satisfies IncomingMessage);
 	};
 
@@ -158,7 +175,7 @@
 			.style('fill', '#69b3a2');
 	}
 
-	$: if ([$nattacks, $type, $attackRoll, $damageRoll, $ac]) {
+	$: if ([$nattacks, $type, $attackRoll, $damageRoll, $ac, $crits, maxTrials]) {
 		nonce++;
 		console.log('NEW NONCE', nonce);
 	}
@@ -183,7 +200,7 @@
 	<div>
 		<em>
 			This tool will calculate the damage distribution for a given attack by rolling the attack
-			against an enemy with a certain AC 1 million times.
+			against an enemy with a certain AC {maxTrials.toLocaleString()} times.
 		</em>
 	</div>
 	<div>
@@ -194,13 +211,7 @@
 	</div>
 	<div>
 		<em>
-			Current num. calculations: {[...nTrials.toString()]
-				.reverse()
-				.reduce(
-					(p, v, i, arr) => [...((i + 1) % 3 === 0 && i !== arr.length - 1 ? [','] : []), v, ...p],
-					[]
-				)
-				.join('')}
+			Current num. calculations: {nTrials.toLocaleString()}
 		</em>
 	</div>
 	<p>
@@ -208,6 +219,17 @@
 	</p>
 	<details>
 		<summary>Advanced</summary>
+
+		<div>
+			<label>
+				<span>Max number of iterations:</span>
+				<input type="number" bind:value={$maxIters} />
+			</label>
+			<label>
+				<span>Trials per iteration:</span>
+				<input type="number" bind:value={$trialsPerIter} />
+			</label>
+		</div>
 
 		<p>
 			If you want to create a random variable to use in your roll expressions that retains its value
@@ -270,6 +292,29 @@ Damage: 1d8+$DMGd2
 				<input type="radio" bind:group={$type} value="disadvantage" />
 				<span>Disadvantage</span>
 			</label>
+		</div>
+
+		<div>
+			<div>
+				<label>
+					<input type="checkbox" bind:checked={$crits.failsMiss} />
+					<span>Critical failures always miss</span>
+				</label>
+			</div>
+			<div>
+				<label>
+					<input type="checkbox" bind:checked={$crits.successesHit} />
+					<span>Critical successes always hit</span>
+				</label>
+			</div>
+			{#if $crits.successesHit}
+				<div>
+					<label>
+						<input type="checkbox" bind:checked={$crits.successesCrit} />
+						<span>Critical successes double damage (crit)</span>
+					</label>
+				</div>
+			{/if}
 		</div>
 
 		<h2>Damage Setup</h2>
