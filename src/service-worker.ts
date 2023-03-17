@@ -15,6 +15,7 @@ export interface IncomingMessage {
 export interface ReturnMessage {
 	buckets: [number, number][];
 	numTrials: number;
+	numHit: number;
 	nonce: number;
 }
 
@@ -38,7 +39,7 @@ function simulate(
 	attackRoll: ParsedRoll,
 	damageRoll: ParsedRoll,
 	setup: AttackSetup
-): number {
+): [damage: number, hit: number] {
 	const roll = (r: ParsedRoll, crits = true) => {
 		const result = roller.rollParsed(r);
 
@@ -51,6 +52,8 @@ function simulate(
 	};
 
 	let sum = 0;
+	let numHit = 0;
+
 	for (let atk = 0; atk < setup.numAttacks; atk++) {
 		const attackResult =
 			setup.adv === 'advantage'
@@ -64,13 +67,14 @@ function simulate(
 		)
 			continue;
 
+		numHit++;
 		let damage = roll(damageRoll, /* crits = */ false);
 		if (attackResult === Number.POSITIVE_INFINITY) damage *= 2;
 
 		sum += damage;
 	}
 
-	return sum;
+	return [sum, numHit];
 }
 
 sw.addEventListener('message', (event) => {
@@ -83,14 +87,17 @@ sw.addEventListener('message', (event) => {
 	const kTrials = 100000;
 
 	const buckets = new Map<number, number>();
+	let numHit = 0;
 	for (let i = 0; i < kTrials; i++) {
-		const result = simulate(roller, atkParsed, dmgParsed, data.setup);
+		const [result, n] = simulate(roller, atkParsed, dmgParsed, data.setup);
+		numHit += n;
 		buckets.set(result, (buckets.get(result) ?? 0) + 1);
 	}
 
 	event.source?.postMessage({
 		buckets: [...buckets],
 		numTrials: kTrials,
+		numHit: numHit,
 		nonce: data.nonce
 	} satisfies ReturnMessage);
 });

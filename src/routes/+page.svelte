@@ -16,9 +16,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import * as d3 from 'd3';
-	import { min, range } from 'd3';
-	import { binomial, P } from './probability';
-	import Decimal from 'decimal.js';
+	import { range } from 'd3';
 	import { afterUpdate, onMount } from 'svelte';
 
 	let div: HTMLDivElement;
@@ -33,6 +31,8 @@
 
 	const buckets = new Map<number, number>();
 	let nTrials = 0;
+	let nAttacks = 0;
+	let nHit = 0;
 
 	let nonce = 0;
 	let lastNonce = 0;
@@ -61,6 +61,8 @@
 				buckets.set(key, (buckets.get(key) ?? 0) + nResults);
 			}
 			nTrials += data.numTrials;
+			nAttacks += data.numTrials * (nattacks ?? 1)
+			nHit += data.numHit;
 
 			requestUpdate();
 		};
@@ -78,6 +80,8 @@
 		lastNonce = nonce;
 		buckets.clear();
 		nTrials = 0;
+		nAttacks = 0;
+		nHit = 0;
 		requestUpdate();
 	});
 
@@ -168,58 +172,13 @@
 </script>
 
 <svelte:head>
-	<title>Damage Calculator</title>
+	<title>Damage Estimator</title>
 </svelte:head>
 
-<div>
-	<div>
-		<div>
-			<label>
-				<span>Number of attacks:</span>
-				<input type="number" bind:value={nattacks} />
-			</label>
-		</div>
-		<div>
-			<label>
-				<span>Attack Roll (roll20 format, e.g. 2d6+1d8+3):</span>
-				<input type="text" bind:value={attackRoll} />
-			</label>
-			<em>Note that the first attack die will be used to determine critical success/failure</em>
-		</div>
-		<div>
-			<span> Roll type: </span>
+<h1>Damage Estimator</h1>
 
-			<label>
-				<input type="radio" bind:group={type} value="normal" />
-				<span>Normal</span>
-			</label>
-			<label>
-				<input type="radio" bind:group={type} value="advantage" />
-				<span>Advantage</span>
-			</label>
-			<label>
-				<input type="radio" bind:group={type} value="disadvantage" />
-				<span>Disadvantage</span>
-			</label>
-		</div>
-		<div>
-			<label>
-				<span>Damage Roll (roll20 format, e.g. 2d6+1d8+3):</span>
-				<input type="text" bind:value={damageRoll} />
-			</label>
-		</div>
-	</div>
-	<div style="margin-top: 2rem;">
-		<label>
-			<span>AC:</span>
-			<input bind:value={ac} type="number" />
-		</label>
-		<span>
-			{'=>'} Average damage per turn: {Math.floor(expectedDamage * 1000) / 1000}.
-		</span>
-	</div>
-</div>
-<div style="margin-bottom: 1rem;">
+<h2>About</h2>
+<div>
 	<div>
 		<em>
 			This tool will calculate the damage distribution for a given attack by rolling the attack
@@ -243,7 +202,65 @@
 				.join('')}
 		</em>
 	</div>
+	<p><em> If things don't work, reload the page a couple times. </em></p>
 </div>
+
+<div>
+	<div>
+		<h2>Attack Setup</h2>
+		<p>
+			<em>Note that the first attack die will be used to determine critical success/failure</em>
+		</p>
+		<div>
+			<label>
+				<span>Number of attacks:</span>
+				<input type="number" bind:value={nattacks} />
+			</label>
+		</div>
+		<div>
+			<label>
+				<span>Attack Roll (roll20 format, e.g. 2d6+1d8+3):</span>
+				<input type="text" bind:value={attackRoll} />
+			</label>
+		</div>
+		<div>
+			<span> Roll type: </span>
+
+			<label>
+				<input type="radio" bind:group={type} value="normal" />
+				<span>Normal</span>
+			</label>
+			<label>
+				<input type="radio" bind:group={type} value="advantage" />
+				<span>Advantage</span>
+			</label>
+			<label>
+				<input type="radio" bind:group={type} value="disadvantage" />
+				<span>Disadvantage</span>
+			</label>
+		</div>
+
+		<h2>Damage Setup</h2>
+		<div>
+			<label>
+				<span>Damage Roll (roll20 format, e.g. 2d6+1d8+3):</span>
+				<input type="text" bind:value={damageRoll} />
+			</label>
+		</div>
+	</div>
+
+	<h2>Opponent Setup</h2>
+	<div>
+		<label>
+			<span>AC:</span>
+			<input bind:value={ac} type="number" />
+		</label>
+		<span>
+			{'=>'} Average damage per turn: {Math.floor(expectedDamage * 1000) / 1000}. {#if nAttacks !== 0} Hit ratio: {Math.floor((nHit / nAttacks) * 10000) / 100}% {/if}
+		</span>
+	</div>
+</div>
+<div style="margin-bottom: 1rem;" />
 <div class="root" bind:clientWidth={containerWidth}>
 	<div class="inner" bind:this={div} />
 </div>
@@ -254,5 +271,9 @@
 	}
 	.inner {
 		width: 100%;
+	}
+
+	h2 {
+		margin-bottom: 0.5rem;
 	}
 </style>
