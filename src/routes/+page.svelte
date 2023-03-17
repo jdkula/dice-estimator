@@ -9,7 +9,7 @@
 		damageRoll: string;
 		adv?: AdvType;
 
-		versus: number;
+		versus: number | string;
 	}
 </script>
 
@@ -24,8 +24,8 @@
 
 	let nattacks = persistentStore<number | undefined>('nattacks', 1);
 	let attackRoll = persistentStore('attackRoll', '1d20');
-	let damageRoll =  persistentStore('damageRoll', '1d6');
-	let ac = persistentStore<number | undefined>('ac', 0);
+	let damageRoll = persistentStore('damageRoll', '1d6');
+	let ac = persistentStore<string>('ac', '0');
 	let type = persistentStore<AdvType>('adv', 'normal');
 
 	let containerWidth: number = 0;
@@ -40,7 +40,7 @@
 
 	const requestUpdate = async () => {
 		console.log('Trials@', nTrials);
-		if (nTrials >= 10_000_000) return;
+		if (nTrials >= 1_000_000) return;
 
 		const registration = await navigator.serviceWorker.ready;
 		registration.active?.postMessage({
@@ -183,7 +183,7 @@
 	<div>
 		<em>
 			This tool will calculate the damage distribution for a given attack by rolling the attack
-			against an enemy with a certain AC 10 million times.
+			against an enemy with a certain AC 1 million times.
 		</em>
 	</div>
 	<div>
@@ -206,6 +206,35 @@
 	<p>
 		<em> If things don't work, hard reload the page a couple times. Cmd+Shift+R / Ctrl+Shift+R </em>
 	</p>
+	<details>
+		<summary>Advanced</summary>
+
+		<p>
+			If you want to create a random variable to use in your roll expressions that retains its value
+			across all expressions, you can use up to one variable. Append %% and then an expression
+			X=&lt;roll&gt; to create a random variable.
+		</p>
+		<div>
+			<div>Examples:</div>
+			<div>
+				<pre><code>
+# Roll between 1 and 6 d6s
+Attack: 1d20 %% X=1d8
+Damage: Xd6
+
+# Could also be written as
+Attack: 1d20
+Damage: (1d8)d6
+
+# Pick between 0 and 8 d2s to add to a pool,
+# the contents of which is randomly allocated
+# between attack and damage bonuses
+Attack: 1d20+$ATKd2 %% $POOL=1d8 %% $ATK=1d($POOL + 1) - 1 %% $DMG=($POOL - $ATK)
+Damage: 1d8+$DMGd2
+</code></pre>
+			</div>
+		</div>
+	</details>
 </div>
 
 <div>
@@ -256,7 +285,7 @@
 	<div>
 		<label>
 			<span>AC:</span>
-			<input bind:value={$ac} type="number" />
+			<input bind:value={$ac} type="text" />
 		</label>
 		<span>
 			{'=>'} Average damage per turn: {Math.floor(expectedDamage * 1000) / 1000}. {#if nAttacks !== 0}
