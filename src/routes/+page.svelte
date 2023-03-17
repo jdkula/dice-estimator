@@ -20,22 +20,24 @@
 
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import Box from '$lib/Box.svelte';
+	import TextInput from '$lib/TextInput.svelte';
 	import * as d3 from 'd3';
 	import { range } from 'd3';
 	import { afterUpdate, onMount } from 'svelte';
-	import { persistentStore } from './browserStore';
+	import { persistentStore } from '../lib/browserStore';
 
 	let div: HTMLDivElement;
 
 	let nattacks = persistentStore<number | undefined>('nattacks', 1);
-	let attackRoll = persistentStore('attackRoll', '1d20');
-	let damageRoll = persistentStore('damageRoll', '1d6');
-	let ac = persistentStore<string>('ac', '0');
+	let attackRoll = persistentStore('attackRoll', '');
+	let damageRoll = persistentStore('damageRoll', '');
+	let ac = persistentStore<string>('ac', '');
 	let type = persistentStore<AdvType>('adv', 'normal');
 
 	let maxIters = persistentStore('maxIters', 1_000);
 	let trialsPerIter = persistentStore('perIter', 5_000);
-	$: maxTrials = $maxIters * $trialsPerIter;
+	$: maxTrials = ($maxIters ?? 1_000) * ($trialsPerIter ?? 5_000);
 
 	let crits = persistentStore<AttackSetup['crits']>('crits', {
 		failsMiss: true,
@@ -62,13 +64,13 @@
 			setup: {
 				numAttacks: $nattacks ?? 1,
 				versus: $ac ?? 0,
-				attackRoll: $attackRoll,
-				damageRoll: $damageRoll,
+				attackRoll: $attackRoll || '1d20+3',
+				damageRoll: $damageRoll || '2d6+1d8+3',
 				adv: $type,
 				crits: $crits
 			},
 			nonce,
-			itersRequested: $trialsPerIter
+			itersRequested: $trialsPerIter ?? 5_000
 		} satisfies IncomingMessage);
 	};
 
@@ -193,42 +195,33 @@
 	<title>Damage Estimator</title>
 </svelte:head>
 
-<h1>Damage Estimator</h1>
-
-<h2>About</h2>
-<div>
-	<div>
-		<em>
-			This tool will calculate the damage distribution for a given attack by rolling the attack
-			against an enemy with a certain AC {maxTrials.toLocaleString()} times.
-		</em>
-	</div>
-	<div>
-		<em>
-			Nat 1s will always fail, no matter the AC. Nat 20s always hit, no matter the AC, and do double
-			damage.
-		</em>
-	</div>
-	<div>
+<article class="prose-sm md:prose xl:prose-lg max-w-full md:max-w-full xl:max-w-full">
+	<h1>Damage Estimator</h1>
+	<p>
+		This tool will calculate the damage distribution for a given attack by rolling the attack
+		against an enemy with a certain AC {maxTrials.toLocaleString()} times.
+	</p>
+	<p>
 		<em>
 			Current num. calculations: {nTrials.toLocaleString()}
 		</em>
-	</div>
+	</p>
 	<p>
 		<em> If things don't work, hard reload the page a couple times. Cmd+Shift+R / Ctrl+Shift+R </em>
 	</p>
+</article>
+
+<div>
 	<details>
 		<summary>Advanced</summary>
 
 		<div>
-			<label>
-				<span>Max number of iterations:</span>
-				<input type="number" bind:value={$maxIters} />
-			</label>
-			<label>
-				<span>Trials per iteration:</span>
-				<input type="number" bind:value={$trialsPerIter} />
-			</label>
+			<TextInput bind:value={$maxIters} placeholder="2000" type="number"
+				>Max number of iterations:</TextInput
+			>
+			<TextInput bind:value={$trialsPerIter} placeholder="5000" type="number"
+				>Trials per iteration:</TextInput
+			>
 		</div>
 
 		<p>
@@ -259,86 +252,99 @@ Damage: 1d8+$DMGd2
 	</details>
 </div>
 
-<div style="margin-top: 2rem;">
-	<div
-		style="display: flex; flex-wrap: wrap; column-gap: 2rem; row-gap: 2rem; justify-content: space-around;"
-	>
-		<div style="width: max(25vw, 300px); padding: 1rem; border: 1px solid black;">
+<div class="mt-8">
+	<div class="flex flex-wrap gap-4 justify-around">
+		<Box>
 			<h2>Attack Setup</h2>
-			<p>
-				<em>Note that the first attack die will be used to determine critical success/failure</em>
-			</p>
 			<div>
-				<label>
-					<span>Number of attacks:</span>
-					<input type="number" bind:value={$nattacks} />
-				</label>
+				<TextInput bind:value={$nattacks} placeholder="1" type="number">Number of attacks</TextInput
+				>
 			</div>
 			<div>
-				<label>
-					<span>Attack Roll (roll20 format, e.g. 2d6+1d8+3):</span>
-					<input type="text" bind:value={$attackRoll} />
-				</label>
+				<TextInput bind:value={$attackRoll} type="text" placeholder="1d20+3">
+					Attack Roll (roll20 format)
+				</TextInput>
 			</div>
-			<div>
-				<span> Roll type: </span>
-
-				<label>
-					<input type="radio" bind:group={$type} value="normal" />
-					<span>Normal</span>
-				</label>
-				<label>
-					<input type="radio" bind:group={$type} value="advantage" />
-					<span>Advantage</span>
-				</label>
-				<label>
-					<input type="radio" bind:group={$type} value="disadvantage" />
-					<span>Disadvantage</span>
-				</label>
-			</div>
-
-			<div>
-				<div>
-					<label>
-						<input type="checkbox" bind:checked={$crits.failsMiss} />
-						<span>Critical failures always miss</span>
-					</label>
-				</div>
-				<div>
-					<label>
-						<input type="checkbox" bind:checked={$crits.successesHit} />
-						<span>Critical successes always hit</span>
-					</label>
-				</div>
-				{#if $crits.successesHit}
+			<div
+				class="relative my-2 rounded-xl bg-gray-100 border border-gray-300 overflow-hidden focus-within:border-gray-500"
+			>
+				<span class="text-xs text-gray-600 px-4 pt-1 absolute"> Roll Type: </span>
+				<div
+					class="bg-transparent px-4 pt-5 pb-2 w-full focus:outline-none placeholder:text-gray-400"
+				>
 					<div>
 						<label>
-							<input type="checkbox" bind:checked={$crits.successesCrit} />
-							<span>Critical successes double damage (crit)</span>
+							<input type="radio" bind:group={$type} value="normal" />
+							<span>Normal</span>
 						</label>
 					</div>
-				{/if}
+					<div>
+						<label>
+							<input type="radio" bind:group={$type} value="advantage" />
+							<span>Advantage</span>
+						</label>
+					</div>
+					<div>
+						<label>
+							<input type="radio" bind:group={$type} value="disadvantage" />
+							<span>Disadvantage</span>
+						</label>
+					</div>
+				</div>
 			</div>
-		</div>
-		<div style="width: max(25vw, 300px); padding: 1rem; border: 1px solid black;">
+
+			<div>
+				<div
+					class="relative my-2 rounded-xl bg-gray-100 border border-gray-300 overflow-hidden focus-within:border-gray-500"
+				>
+					<span class="text-xs text-gray-600 px-4 pt-1 absolute"> Crit Settings: </span>
+					<div
+						class="bg-transparent px-4 pt-5 pb-2 w-full focus:outline-none placeholder:text-gray-400"
+					>
+						<div>
+							<label>
+								<input type="checkbox" bind:checked={$crits.failsMiss} />
+								<span>Critical failures always miss</span>
+							</label>
+						</div>
+						<div>
+							<label>
+								<input type="checkbox" bind:checked={$crits.successesHit} />
+								<span>Critical successes always hit</span>
+							</label>
+						</div>
+						{#if $crits.successesHit}
+							<div>
+								<label>
+									<input type="checkbox" bind:checked={$crits.successesCrit} />
+									<span>Critical successes double damage (crit)</span>
+								</label>
+							</div>
+						{/if}
+						<p class="text-gray-500">
+							<em>
+								Note that the first attack die will be used to determine critical success/failure
+							</em>
+						</p>
+					</div>
+				</div>
+			</div>
+		</Box>
+		<Box>
 			<h2>Damage Setup</h2>
 			<div>
-				<label>
-					<span>Damage Roll (roll20 format, e.g. 2d6+1d8+3):</span>
-					<input type="text" bind:value={$damageRoll} />
-				</label>
+				<TextInput bind:value={$damageRoll} type="text" placeholder="2d6+1d8+3">
+					Damage Roll (roll20 format)
+				</TextInput>
 			</div>
-		</div>
+		</Box>
 
-		<div style="width: max(25vw, 300px); padding: 1rem; border: 1px solid black;">
+		<Box>
 			<h2>Opponent Setup</h2>
 			<div>
-				<label>
-					<span>AC:</span>
-					<input bind:value={$ac} type="text" />
-				</label>
+				<TextInput bind:value={$ac} type="text" placeholder="0">AC (roll20 format)</TextInput>
 			</div>
-		</div>
+		</Box>
 	</div>
 
 	<div style="margin-top: 1rem; text-align: center;">
@@ -369,7 +375,7 @@ Damage: 1d8+$DMGd2
 
 <style>
 	.root {
-		width: 98vw;
+		width: 100%;
 	}
 	.inner {
 		width: 100%;
