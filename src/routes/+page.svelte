@@ -33,7 +33,7 @@
 	let ac = persistentStore<string>('ac', '0');
 	let type = persistentStore<AdvType>('adv', 'normal');
 
-	let maxIters = persistentStore('maxIters', 2_000);
+	let maxIters = persistentStore('maxIters', 1_000);
 	let trialsPerIter = persistentStore('perIter', 5_000);
 	$: maxTrials = $maxIters * $trialsPerIter;
 
