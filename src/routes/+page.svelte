@@ -31,8 +31,7 @@
 	let ac = 0;
 	$: dc = ac === undefined ? ac : ac + 1;
 
-	let advantage = false;
-	let disadvantage = false;
+	let type: 'normal' | 'advantage' | 'disadvantage' = 'normal';
 
 	let containerWidth: number;
 
@@ -53,7 +52,7 @@
 				ac,
 				nattacks,
 				modattack,
-				type: 'normal'
+				type
 			} satisfies AttackSetup,
 			nonce
 		});
@@ -106,7 +105,7 @@
 	$: expectedDamage = points.map(([amount, prob]) => amount * prob).reduce((p, v) => p + v, 0);
 
 	function makeGraph(ylabel: string, pool: [number, number][]) {
-		const margin = { top: 0, right: 50, bottom: 60, left: 100 },
+		const margin = { top: 20, right: 50, bottom: 60, left: 100 },
 			width = containerWidth - margin.left - margin.right,
 			height = 600 - margin.top - margin.bottom;
 
@@ -161,7 +160,7 @@
 			.style('fill', '#69b3a2');
 	}
 
-	$: if ([n, s, mod, ac, advantage, disadvantage, nattacks, modattack]) {
+	$: if ([n, s, mod, ac, nattacks, modattack, type]) {
 		nonce++;
 		console.log('NEW NONCE', nonce);
 	}
@@ -229,6 +228,22 @@
 				on:change={(e) => e.target.value !== '' && (mod = parseInt(e.target.value))}
 				type="number"
 			/>
+		</label>
+	</div>
+	<div>
+		<span> Roll type: </span>
+
+		<label>
+			<input type="radio" bind:group={type} value="normal" />
+			<span>Normal</span>
+		</label>
+		<label>
+			<input type="radio" bind:group={type} value="advantage" />
+			<span>Advantage</span>
+		</label>
+		<label>
+			<input type="radio" bind:group={type} value="disadvantage" />
+			<span>Disadvantage</span>
 		</label>
 	</div>
 	<div style="margin-top: 2rem;">
