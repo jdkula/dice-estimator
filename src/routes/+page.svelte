@@ -152,16 +152,16 @@
     svg
       .append('text')
       .attr('class', 'x label')
-      .attr('text-anchor', 'end')
+      .attr('text-anchor', 'middle')
       .attr('x', width / 2 + 90)
       .attr('y', height + 35)
-      .text(`Dice Output`);
+      .text(`Attack Damage (misses as 0)`);
     svg
       .append('text')
       .attr('class', 'y label')
-      .attr('text-anchor', 'end')
-      .attr('x', -height / 2 + 50)
-      .attr('y', -35)
+      .attr('text-anchor', 'middle')
+      .attr('x', -height / 2)
+      .attr('y', -50)
       .attr('transform', 'rotate(-90)')
       .text(ylabel);
 
@@ -184,9 +184,9 @@
   $: if (containerWidth && browser && div) {
     d3.select(div).selectChildren().remove();
 
-    makeGraph('Possibility to equal', points);
-    makeGraph('Possibility to match or exceed', cumulative);
-    makeGraph('Possibility to match or fall short', cumulativeNeg);
+    makeGraph('Probability', points);
+    makeGraph('Probability of matching or exceeding', cumulative);
+    makeGraph('Probability of matching or falling short', cumulativeNeg);
   }
 </script>
 
@@ -198,7 +198,7 @@
   <h1>Damage Estimator</h1>
   <p>
     This tool will calculate the damage distribution for a given attack by rolling the attack
-    against an enemy with a certain AC {maxTrials.toLocaleString()} times.
+    against an enemy with a certain AC {$maxTrials.toLocaleString()} times.
   </p>
   <p>
     <em>
