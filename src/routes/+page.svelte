@@ -61,7 +61,7 @@
 				buckets.set(key, (buckets.get(key) ?? 0) + nResults);
 			}
 			nTrials += data.numTrials;
-			nAttacks += data.numTrials * (nattacks ?? 1)
+			nAttacks += data.numTrials * (nattacks ?? 1);
 			nHit += data.numHit;
 
 			requestUpdate();
@@ -202,7 +202,9 @@
 				.join('')}
 		</em>
 	</div>
-	<p><em> If things don't work, reload the page a couple times. </em></p>
+	<p>
+		<em> If things don't work, hard reload the page a couple times. Cmd+Shift+R / Ctrl+Shift+R </em>
+	</p>
 </div>
 
 <div>
@@ -256,7 +258,9 @@
 			<input bind:value={ac} type="number" />
 		</label>
 		<span>
-			{'=>'} Average damage per turn: {Math.floor(expectedDamage * 1000) / 1000}. {#if nAttacks !== 0} Hit ratio: {Math.floor((nHit / nAttacks) * 10000) / 100}% {/if}
+			{'=>'} Average damage per turn: {Math.floor(expectedDamage * 1000) / 1000}. {#if nAttacks !== 0}
+				Hit ratio: {Math.floor((nHit / nAttacks) * 10000) / 100}%
+			{/if}
 		</span>
 	</div>
 </div>
