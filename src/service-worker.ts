@@ -3,6 +3,8 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 
+import { DiceRoller, type RootType as ParsedRoll, type CriticalType, type RollBase } from 'dice-roller-parser';
+
 import type { AttackSetup } from './routes/+page.svelte';
 
 export interface IncomingMessage {
@@ -18,30 +20,54 @@ export interface ReturnMessage {
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 
-function roll(s: number) {
-	return Math.ceil(Math.random() * s);
+function getCritical(roll: any): CriticalType {
+	if (Array.isArray(roll.dice)) {
+		return getCritical(roll.dice[0]);
+	}
+	if (Array.isArray(roll.rolls)) {
+		return getCritical(roll.rolls.filter((r: RollBase) => r.valid)[0]);
+	}
+	if (typeof roll.critical === 'string') {
+		return roll.critical;
+	}
+	return null;
 }
 
-function simulate(attack: AttackSetup): number {
+function simulate(
+	roller: DiceRoller,
+	attackRoll: ParsedRoll,
+	damageRoll: ParsedRoll,
+	setup: AttackSetup
+): number {
+	const roll = (r: ParsedRoll, crits = true) => {
+		const result = roller.rollParsed(r);
+
+		if (crits) {
+			if (getCritical(result) === 'failure') return Number.NEGATIVE_INFINITY;
+			if (getCritical(result) === 'success') return Number.POSITIVE_INFINITY;
+		}
+
+		return result.value;
+	};
+
 	let sum = 0;
-	for (let atk = 0; atk < attack.nattacks; atk++) {
-		const attackRoll =
-			attack.type === 'advantage'
-				? Math.max(roll(20), roll(20))
-				: attack.type === 'disadvantage'
-				? Math.min(roll(20), roll(20))
-				: roll(20);
-		if ((attackRoll !== 20 && attackRoll + attack.modattack <= attack.ac) || attackRoll === 1)
+	for (let atk = 0; atk < setup.numAttacks; atk++) {
+		const attackResult =
+			setup.adv === 'advantage'
+				? Math.max(roll(attackRoll), roll(attackRoll))
+				: setup.adv === 'disadvantage'
+				? Math.min(roll(attackRoll), roll(attackRoll))
+				: roll(attackRoll);
+		if (
+			(attackResult !== Number.POSITIVE_INFINITY && attackResult <= setup.versus) ||
+			attackResult === Number.NEGATIVE_INFINITY
+		)
 			continue;
 
-		let damageRaw = 0;
-		for (let dmg = 0; dmg < attack.n; dmg++) {
-			damageRaw += roll(attack.s);
-		}
-		damageRaw += attack.mod;
-		if (attackRoll === 20) damageRaw *= 2;
+		let damage = roll(damageRoll, /* crits = */ false);
+		if (attackResult === Number.POSITIVE_INFINITY) damage *= 2;
 
-		sum += damageRaw;
+		sum += damage;
 	}
 
 	return sum;
@@ -50,12 +76,16 @@ function simulate(attack: AttackSetup): number {
 sw.addEventListener('message', (event) => {
 	const data = event.data as IncomingMessage;
 
-	const kTrials = 1000000;
+	const roller = new DiceRoller();
+	const atkParsed = roller.parse(data.setup.attackRoll);
+	const dmgParsed = roller.parse(data.setup.damageRoll);
 
-  const buckets = new Map<number, number>();
+	const kTrials = 100000;
+
+	const buckets = new Map<number, number>();
 	for (let i = 0; i < kTrials; i++) {
-		const result = simulate(data.setup);
-    buckets.set(result, (buckets.get(result) ?? 0) + 1)
+		const result = simulate(roller, atkParsed, dmgParsed, data.setup);
+		buckets.set(result, (buckets.get(result) ?? 0) + 1);
 	}
 
 	event.source?.postMessage({

@@ -1,15 +1,15 @@
 <script lang="ts" context="module">
 	import type { IncomingMessage, ReturnMessage } from './../service-worker';
+	export type AdvType = 'advantage' | 'disadvantage' | 'normal';
+
 	export interface AttackSetup {
-		n: number;
-		s: number;
-		mod: number;
+		numAttacks: number;
+		attackRoll: string;
 
-		type: 'normal' | 'advantage' | 'disadvantage';
+		damageRoll: string;
+		adv?: AdvType;
 
-		nattacks: number;
-		modattack: number;
-		ac: number;
+		versus: number;
 	}
 </script>
 
@@ -23,20 +23,14 @@
 
 	let div: HTMLDivElement;
 
-	let nattacks = 1;
-	let modattack = 0;
+	let nattacks: number | undefined = 1;
+	let attackRoll = '1d20';
+	let damageRoll = '1d6';
+	let ac: number | undefined = 0;
+	let type: AdvType = 'normal';
 
-	let n = 1;
-	let s = 6;
-	let mod = 0;
-	let ac = 0;
-	$: dc = ac === undefined ? ac : ac + 1;
+	let containerWidth: number = 0;
 
-	let type: 'normal' | 'advantage' | 'disadvantage' = 'normal';
-
-	let containerWidth: number;
-
-	let handle: number | null = null;
 	const buckets = new Map<number, number>();
 	let nTrials = 0;
 
@@ -45,18 +39,16 @@
 
 	const requestUpdate = async () => {
 		console.log('Trials@', nTrials);
-		if (nTrials >= 50_000_000) return;
+		if (nTrials >= 10_000_000) return;
 
 		const registration = await navigator.serviceWorker.ready;
 		registration.active?.postMessage({
 			setup: {
-				n,
-				s,
-				mod,
-				ac,
-				nattacks,
-				modattack,
-				type
+				numAttacks: nattacks ?? 1,
+				versus: ac ?? 0,
+				attackRoll,
+				damageRoll,
+				adv: type
 			},
 			nonce
 		} satisfies IncomingMessage);
@@ -89,10 +81,9 @@
 		requestUpdate();
 	});
 
-	$: maximum = nattacks * (n * s + mod) * 2 + 1;
-	$: minimum = 0;
-
 	$: points = [...buckets].map<[number, number]>(([n, h]) => [n, h / nTrials]);
+	$: maximum = points.map(([x]) => x).reduce((p, v) => Math.max(p, v), Number.NEGATIVE_INFINITY);
+	$: minimum = points.map(([x]) => x).reduce((p, v) => Math.min(p, v), Number.POSITIVE_INFINITY);
 
 	$: cumulative = range(minimum, maximum + 1).map<[number, number]>((i) => [
 		i,
@@ -162,13 +153,12 @@
 			.style('fill', '#69b3a2');
 	}
 
-	$: if ([n, s, mod, ac, nattacks, modattack, type]) {
+	$: if ([nattacks, type, attackRoll, damageRoll, ac]) {
 		nonce++;
 		console.log('NEW NONCE', nonce);
 	}
 
 	$: if (containerWidth && browser && div) {
-		const pHit = Math.min(1, Math.max(0, (20 - ac + modattack) / 20));
 		d3.select(div).selectChildren().remove();
 
 		makeGraph('Possibility to equal', points);
@@ -183,79 +173,46 @@
 
 <div>
 	<div>
-		<label>
-			<span>Number of attacks:</span>
-			<input
-				value={nattacks}
-				on:change={(e) => e.target.value !== '' && (nattacks = parseInt(e.target.value))}
-				type="number"
-			/>
-		</label>
-	</div>
-	<div>
-		<label>
-			<span>Modifier to attack:</span>
-			<input
-				value={modattack}
-				on:change={(e) => e.target.value !== '' && (modattack = parseInt(e.target.value))}
-				type="number"
-			/>
-		</label>
-	</div>
-	<div>
-		<label>
-			<span>Per attack: number of dice:</span>
-			<input
-				value={n}
-				on:change={(e) => e.target.value !== '' && (n = parseInt(e.target.value))}
-				type="number"
-			/>
-		</label>
-	</div>
-	<div>
-		<label>
-			<span>Per attack: number of sides:</span>
-			<input
-				value={s}
-				on:change={(e) => e.target.value !== '' && (s = parseInt(e.target.value))}
-				type="number"
-			/>
-		</label>
-	</div>
-	<div>
-		<label>
-			<span>Per attack: modifier:</span>
-			<input
-				value={mod}
-				on:change={(e) => e.target.value !== '' && (mod = parseInt(e.target.value))}
-				type="number"
-			/>
-		</label>
-	</div>
-	<div>
-		<span> Roll type: </span>
+		<div>
+			<label>
+				<span>Number of attacks:</span>
+				<input type="number" bind:value={nattacks} />
+			</label>
+		</div>
+		<div>
+			<label>
+				<span>Attack Roll (roll20 format, e.g. 2d6+1d8+3):</span>
+				<input type="text" bind:value={attackRoll} />
+			</label>
+			<em>Note that the first attack die will be used to determine critical success/failure</em>
+		</div>
+		<div>
+			<span> Roll type: </span>
 
-		<label>
-			<input type="radio" bind:group={type} value="normal" />
-			<span>Normal</span>
-		</label>
-		<label>
-			<input type="radio" bind:group={type} value="advantage" />
-			<span>Advantage</span>
-		</label>
-		<label>
-			<input type="radio" bind:group={type} value="disadvantage" />
-			<span>Disadvantage</span>
-		</label>
+			<label>
+				<input type="radio" bind:group={type} value="normal" />
+				<span>Normal</span>
+			</label>
+			<label>
+				<input type="radio" bind:group={type} value="advantage" />
+				<span>Advantage</span>
+			</label>
+			<label>
+				<input type="radio" bind:group={type} value="disadvantage" />
+				<span>Disadvantage</span>
+			</label>
+		</div>
+		<div>
+			<label>
+				<span>Damage Roll (roll20 format, e.g. 2d6+1d8+3):</span>
+				<input type="text" bind:value={damageRoll} />
+			</label>
+		</div>
 	</div>
 	<div style="margin-top: 2rem;">
 		<label>
 			<span>AC:</span>
-			<input
-				value={ac}
-				on:change={(e) => e.target.value !== '' && (ac = parseInt(e.target.value))}
-				type="number"
-			/>
+			<input bind:value={ac} type="number" />
 		</label>
 		<span>
 			{'=>'} Average damage per turn: {Math.floor(expectedDamage * 1000) / 1000}.
@@ -266,7 +223,7 @@
 	<div>
 		<em>
 			This tool will calculate the damage distribution for a given attack by rolling the attack
-			against an enemy with a certain AC 50 million times.
+			against an enemy with a certain AC 10 million times.
 		</em>
 	</div>
 	<div>
