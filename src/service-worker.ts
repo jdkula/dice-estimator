@@ -84,7 +84,7 @@ sw.addEventListener('message', (event) => {
 	const atkParsed = roller.parse(data.setup.attackRoll);
 	const dmgParsed = roller.parse(data.setup.damageRoll);
 
-	const kTrials = 100000;
+	const kTrials = 50000;
 
 	const buckets = new Map<number, number>();
 	let numHit = 0;

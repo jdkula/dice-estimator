@@ -18,14 +18,15 @@
 	import * as d3 from 'd3';
 	import { range } from 'd3';
 	import { afterUpdate, onMount } from 'svelte';
+	import { persistentStore } from './browserStore';
 
 	let div: HTMLDivElement;
 
-	let nattacks: number | undefined = 1;
-	let attackRoll = '1d20';
-	let damageRoll = '1d6';
-	let ac: number | undefined = 0;
-	let type: AdvType = 'normal';
+	let nattacks = persistentStore<number | undefined>('nattacks', 1);
+	let attackRoll = persistentStore('attackRoll', '1d20');
+	let damageRoll =  persistentStore('damageRoll', '1d6');
+	let ac = persistentStore<number | undefined>('ac', 0);
+	let type = persistentStore<AdvType>('adv', 'normal');
 
 	let containerWidth: number = 0;
 
@@ -44,11 +45,11 @@
 		const registration = await navigator.serviceWorker.ready;
 		registration.active?.postMessage({
 			setup: {
-				numAttacks: nattacks ?? 1,
-				versus: ac ?? 0,
-				attackRoll,
-				damageRoll,
-				adv: type
+				numAttacks: $nattacks ?? 1,
+				versus: $ac ?? 0,
+				attackRoll: $attackRoll,
+				damageRoll: $damageRoll,
+				adv: $type
 			},
 			nonce
 		} satisfies IncomingMessage);
@@ -61,7 +62,7 @@
 				buckets.set(key, (buckets.get(key) ?? 0) + nResults);
 			}
 			nTrials += data.numTrials;
-			nAttacks += data.numTrials * (nattacks ?? 1);
+			nAttacks += data.numTrials * ($nattacks ?? 1);
 			nHit += data.numHit;
 
 			requestUpdate();
@@ -157,7 +158,7 @@
 			.style('fill', '#69b3a2');
 	}
 
-	$: if ([nattacks, type, attackRoll, damageRoll, ac]) {
+	$: if ([$nattacks, $type, $attackRoll, $damageRoll, $ac]) {
 		nonce++;
 		console.log('NEW NONCE', nonce);
 	}
@@ -216,28 +217,28 @@
 		<div>
 			<label>
 				<span>Number of attacks:</span>
-				<input type="number" bind:value={nattacks} />
+				<input type="number" bind:value={$nattacks} />
 			</label>
 		</div>
 		<div>
 			<label>
 				<span>Attack Roll (roll20 format, e.g. 2d6+1d8+3):</span>
-				<input type="text" bind:value={attackRoll} />
+				<input type="text" bind:value={$attackRoll} />
 			</label>
 		</div>
 		<div>
 			<span> Roll type: </span>
 
 			<label>
-				<input type="radio" bind:group={type} value="normal" />
+				<input type="radio" bind:group={$type} value="normal" />
 				<span>Normal</span>
 			</label>
 			<label>
-				<input type="radio" bind:group={type} value="advantage" />
+				<input type="radio" bind:group={$type} value="advantage" />
 				<span>Advantage</span>
 			</label>
 			<label>
-				<input type="radio" bind:group={type} value="disadvantage" />
+				<input type="radio" bind:group={$type} value="disadvantage" />
 				<span>Disadvantage</span>
 			</label>
 		</div>
@@ -246,7 +247,7 @@
 		<div>
 			<label>
 				<span>Damage Roll (roll20 format, e.g. 2d6+1d8+3):</span>
-				<input type="text" bind:value={damageRoll} />
+				<input type="text" bind:value={$damageRoll} />
 			</label>
 		</div>
 	</div>
@@ -255,7 +256,7 @@
 	<div>
 		<label>
 			<span>AC:</span>
-			<input bind:value={ac} type="number" />
+			<input bind:value={$ac} type="number" />
 		</label>
 		<span>
 			{'=>'} Average damage per turn: {Math.floor(expectedDamage * 1000) / 1000}. {#if nAttacks !== 0}
