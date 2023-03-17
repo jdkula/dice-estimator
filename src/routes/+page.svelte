@@ -35,9 +35,8 @@
 	let ac = persistentStore<string>('ac', '');
 	let type = persistentStore<AdvType>('adv', 'normal');
 
-	let maxIters = persistentStore('maxIters', 1_000);
-	let trialsPerIter = persistentStore('perIter', 5_000);
-	$: maxTrials = ($maxIters ?? 1_000) * ($trialsPerIter ?? 5_000);
+	let maxTrials = persistentStore('maxTrials', 5_000_000);
+	let trialsPerChunk = persistentStore('trialsPerChunk', 5_000);
 
 	let crits = persistentStore<AttackSetup['crits']>('crits', {
 		failsMiss: true,
@@ -57,7 +56,7 @@
 
 	const requestUpdate = async () => {
 		console.log('Trials@', nTrials);
-		if (nTrials >= maxTrials) return;
+		if (nTrials >= ($maxTrials ?? 5_000_000)) return;
 
 		const registration = await navigator.serviceWorker.ready;
 		registration.active?.postMessage({
@@ -70,7 +69,7 @@
 				crits: $crits
 			},
 			nonce,
-			itersRequested: $trialsPerIter ?? 5_000
+			itersRequested: Math.min($trialsPerChunk ?? 5_000, ($maxTrials ?? 5_000_000) - nTrials)
 		} satisfies IncomingMessage);
 	};
 
@@ -177,7 +176,7 @@
 			.style('fill', '#69b3a2');
 	}
 
-	$: if ([$nattacks, $type, $attackRoll, $damageRoll, $ac, $crits, maxTrials]) {
+	$: if ([$nattacks, $type, $attackRoll, $damageRoll, $ac, $crits, $maxTrials, $trialsPerChunk]) {
 		nonce++;
 		console.log('NEW NONCE', nonce);
 	}
@@ -216,12 +215,10 @@
 		<summary>Advanced</summary>
 
 		<div>
-			<TextInput bind:value={$maxIters} placeholder="2000" type="number"
-				>Max number of iterations:</TextInput
-			>
-			<TextInput bind:value={$trialsPerIter} placeholder="5000" type="number"
-				>Trials per iteration:</TextInput
-			>
+			<TextInput bind:value={$maxTrials} placeholder="5000000" type="number">Max trials</TextInput>
+			<TextInput bind:value={$trialsPerChunk} placeholder="5000" type="number">
+				Trials per chunk
+			</TextInput>
 		</div>
 
 		<p>
@@ -268,7 +265,7 @@ Damage: 1d8+$DMGd2
 			<div
 				class="relative my-2 rounded-xl bg-gray-100 border border-gray-300 overflow-hidden focus-within:border-gray-500"
 			>
-				<span class="text-xs text-gray-600 px-4 pt-1 absolute"> Roll Type: </span>
+				<span class="text-xs text-gray-600 px-4 pt-1 absolute"> Roll Type </span>
 				<div
 					class="bg-transparent px-4 pt-5 pb-2 w-full focus:outline-none placeholder:text-gray-400"
 				>
@@ -290,6 +287,9 @@ Damage: 1d8+$DMGd2
 							<span>Disadvantage</span>
 						</label>
 					</div>
+					<p class="text-gray-500">
+						<em> Note that this applies to the entire roll. </em>
+					</p>
 				</div>
 			</div>
 
@@ -297,7 +297,7 @@ Damage: 1d8+$DMGd2
 				<div
 					class="relative my-2 rounded-xl bg-gray-100 border border-gray-300 overflow-hidden focus-within:border-gray-500"
 				>
-					<span class="text-xs text-gray-600 px-4 pt-1 absolute"> Crit Settings: </span>
+					<span class="text-xs text-gray-600 px-4 pt-1 absolute"> Crit Settings </span>
 					<div
 						class="bg-transparent px-4 pt-5 pb-2 w-full focus:outline-none placeholder:text-gray-400"
 					>
