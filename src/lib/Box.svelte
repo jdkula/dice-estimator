@@ -1,3 +1,3 @@
 <div class="p-4 border border-black">
-	<slot />
+  <slot />
 </div>
