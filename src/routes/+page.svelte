@@ -68,7 +68,7 @@
 				crits: $crits
 			},
 			nonce,
-			itersRequested: $trialsPerIter,
+			itersRequested: $trialsPerIter
 		} satisfies IncomingMessage);
 	};
 
@@ -259,84 +259,107 @@ Damage: 1d8+$DMGd2
 	</details>
 </div>
 
-<div>
-	<div>
-		<h2>Attack Setup</h2>
-		<p>
-			<em>Note that the first attack die will be used to determine critical success/failure</em>
-		</p>
-		<div>
-			<label>
-				<span>Number of attacks:</span>
-				<input type="number" bind:value={$nattacks} />
-			</label>
-		</div>
-		<div>
-			<label>
-				<span>Attack Roll (roll20 format, e.g. 2d6+1d8+3):</span>
-				<input type="text" bind:value={$attackRoll} />
-			</label>
-		</div>
-		<div>
-			<span> Roll type: </span>
-
-			<label>
-				<input type="radio" bind:group={$type} value="normal" />
-				<span>Normal</span>
-			</label>
-			<label>
-				<input type="radio" bind:group={$type} value="advantage" />
-				<span>Advantage</span>
-			</label>
-			<label>
-				<input type="radio" bind:group={$type} value="disadvantage" />
-				<span>Disadvantage</span>
-			</label>
-		</div>
-
-		<div>
+<div style="margin-top: 2rem;">
+	<div
+		style="display: flex; flex-wrap: wrap; column-gap: 2rem; row-gap: 2rem; justify-content: space-around;"
+	>
+		<div style="width: max(25vw, 300px); padding: 1rem; border: 1px solid black;">
+			<h2>Attack Setup</h2>
+			<p>
+				<em>Note that the first attack die will be used to determine critical success/failure</em>
+			</p>
 			<div>
 				<label>
-					<input type="checkbox" bind:checked={$crits.failsMiss} />
-					<span>Critical failures always miss</span>
+					<span>Number of attacks:</span>
+					<input type="number" bind:value={$nattacks} />
 				</label>
 			</div>
 			<div>
 				<label>
-					<input type="checkbox" bind:checked={$crits.successesHit} />
-					<span>Critical successes always hit</span>
+					<span>Attack Roll (roll20 format, e.g. 2d6+1d8+3):</span>
+					<input type="text" bind:value={$attackRoll} />
 				</label>
 			</div>
-			{#if $crits.successesHit}
+			<div>
+				<span> Roll type: </span>
+
+				<label>
+					<input type="radio" bind:group={$type} value="normal" />
+					<span>Normal</span>
+				</label>
+				<label>
+					<input type="radio" bind:group={$type} value="advantage" />
+					<span>Advantage</span>
+				</label>
+				<label>
+					<input type="radio" bind:group={$type} value="disadvantage" />
+					<span>Disadvantage</span>
+				</label>
+			</div>
+
+			<div>
 				<div>
 					<label>
-						<input type="checkbox" bind:checked={$crits.successesCrit} />
-						<span>Critical successes double damage (crit)</span>
+						<input type="checkbox" bind:checked={$crits.failsMiss} />
+						<span>Critical failures always miss</span>
 					</label>
 				</div>
-			{/if}
+				<div>
+					<label>
+						<input type="checkbox" bind:checked={$crits.successesHit} />
+						<span>Critical successes always hit</span>
+					</label>
+				</div>
+				{#if $crits.successesHit}
+					<div>
+						<label>
+							<input type="checkbox" bind:checked={$crits.successesCrit} />
+							<span>Critical successes double damage (crit)</span>
+						</label>
+					</div>
+				{/if}
+			</div>
+		</div>
+		<div style="width: max(25vw, 300px); padding: 1rem; border: 1px solid black;">
+			<h2>Damage Setup</h2>
+			<div>
+				<label>
+					<span>Damage Roll (roll20 format, e.g. 2d6+1d8+3):</span>
+					<input type="text" bind:value={$damageRoll} />
+				</label>
+			</div>
 		</div>
 
-		<h2>Damage Setup</h2>
-		<div>
-			<label>
-				<span>Damage Roll (roll20 format, e.g. 2d6+1d8+3):</span>
-				<input type="text" bind:value={$damageRoll} />
-			</label>
+		<div style="width: max(25vw, 300px); padding: 1rem; border: 1px solid black;">
+			<h2>Opponent Setup</h2>
+			<div>
+				<label>
+					<span>AC:</span>
+					<input bind:value={$ac} type="text" />
+				</label>
+			</div>
 		</div>
 	</div>
 
-	<h2>Opponent Setup</h2>
-	<div>
-		<label>
-			<span>AC:</span>
-			<input bind:value={$ac} type="text" />
-		</label>
+	<div style="margin-top: 1rem; text-align: center;">
 		<span>
-			{'=>'} Average damage per turn: {Math.floor(expectedDamage * 1000) / 1000}. {#if nAttacks !== 0}
-				Hit ratio: {Math.floor((nHit / nAttacks) * 10000) / 100}%
-			{/if}
+			Average damage per turn: <strong>{Math.floor(expectedDamage * 1000) / 1000}</strong>.
 		</span>
+		<span>
+			Max: <strong>
+				{#if $crits.successesHit && $crits.successesCrit}
+					{(maximum / 2).toLocaleString()} ({maximum.toLocaleString()} with crits).
+				{:else}
+					{maximum.toLocaleString()}.
+				{/if}
+			</strong>
+		</span>
+
+		{#if nAttacks !== 0}
+			<span>
+				Hit ratio: <strong>{Math.floor((nHit / nAttacks) * 10000) / 100}%</strong>
+			</span>
+		{/if}
 	</div>
 </div>
 <div style="margin-bottom: 1rem;" />
