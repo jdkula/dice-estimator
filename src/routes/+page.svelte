@@ -1,4 +1,5 @@
 <script lang="ts" context="module">
+	import type { IncomingMessage, ReturnMessage } from './../service-worker';
 	export interface AttackSetup {
 		n: number;
 		s: number;
@@ -36,13 +37,16 @@
 	let containerWidth: number;
 
 	let handle: number | null = null;
-	let trials: number[] = [];
+	const buckets = new Map<number, number>();
+	let nTrials = 0;
+
 	let nonce = 0;
 	let lastNonce = 0;
 
 	const requestUpdate = async () => {
-		console.log('Trials@', trials.length);
-		if (trials.length >= 20_000_000) return;
+		console.log('Trials@', nTrials);
+		if (nTrials >= 50_000_000) return;
+
 		const registration = await navigator.serviceWorker.ready;
 		registration.active?.postMessage({
 			setup: {
@@ -53,15 +57,19 @@
 				nattacks,
 				modattack,
 				type
-			} satisfies AttackSetup,
+			},
 			nonce
-		});
+		} satisfies IncomingMessage);
 	};
 
 	onMount(() => {
-		const onMessage = ({ data }: { data: { samples: number[]; nonce: number } }) => {
+		const onMessage = ({ data }: { data: ReturnMessage }) => {
 			if (data.nonce !== nonce) return;
-			trials = trials.concat(data.samples);
+			for (const [key, nResults] of data.buckets) {
+				buckets.set(key, (buckets.get(key) ?? 0) + nResults);
+			}
+			nTrials += data.numTrials;
+
 			requestUpdate();
 		};
 
@@ -76,21 +84,15 @@
 
 		console.log('Requesting update');
 		lastNonce = nonce;
-		trials = [];
+		buckets.clear();
+		nTrials = 0;
 		requestUpdate();
 	});
 
 	$: maximum = nattacks * (n * s + mod) * 2 + 1;
 	$: minimum = 0;
 
-	$: histogram = d3
-		.bin()
-		.value((d) => d)
-		.domain([minimum, maximum])
-		.thresholds(maximum - minimum);
-
-	$: bins = histogram(trials);
-	$: points = bins.map<[number, number]>((bin) => [bin.x0 as number, bin.length / trials.length]);
+	$: points = [...buckets].map<[number, number]>(([n, h]) => [n, h / nTrials]);
 
 	$: cumulative = range(minimum, maximum + 1).map<[number, number]>((i) => [
 		i,
@@ -264,7 +266,7 @@
 	<div>
 		<em>
 			This tool will calculate the damage distribution for a given attack by rolling the attack
-			against an enemy with a certain AC 20,000,000 times.
+			against an enemy with a certain AC 50 million times.
 		</em>
 	</div>
 	<div>
@@ -275,7 +277,7 @@
 	</div>
 	<div>
 		<em>
-			Current num. calculations: {[...trials.length.toString()]
+			Current num. calculations: {[...nTrials.toString()]
 				.reverse()
 				.reduce(
 					(p, v, i, arr) => [...((i + 1) % 3 === 0 && i !== arr.length - 1 ? [','] : []), v, ...p],
