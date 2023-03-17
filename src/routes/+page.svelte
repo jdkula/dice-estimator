@@ -1,61 +1,125 @@
+<script lang="ts" context="module">
+	export interface AttackSetup {
+		n: number;
+		s: number;
+		mod: number;
+
+		type: 'normal' | 'advantage' | 'disadvantage';
+
+		nattacks: number;
+		modattack: number;
+		ac: number;
+	}
+</script>
+
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import * as d3 from 'd3';
 	import { min, range } from 'd3';
 	import { binomial, P } from './probability';
 	import Decimal from 'decimal.js';
+	import { afterUpdate, onMount } from 'svelte';
 
 	let div: HTMLDivElement;
 
+	let nattacks = 1;
+	let modattack = 0;
+
 	let n = 1;
-	let s = 20;
+	let s = 6;
 	let mod = 0;
-	let dc = 10;
+	let ac = 0;
+	$: dc = ac === undefined ? ac : ac + 1;
 
 	let advantage = false;
 	let disadvantage = false;
 
 	let containerWidth: number;
 
-	let pMatchExceed: number | null = null;
-	let pExceed: number | null = null;
+	let handle: number | null = null;
+	let trials: number[] = [];
+	let nonce = 0;
+	let lastNonce = 0;
 
-	$: if (containerWidth && browser && div && [n, s, mod, dc].every((x) => typeof x === 'number')) {
-		const maximum = n * s + mod + 1;
-		const minimum = mod + n;
+	const requestUpdate = async () => {
+		console.log('Trials@', trials.length);
+		if (trials.length >= 20_000_000) return;
+		const registration = await navigator.serviceWorker.ready;
+		registration.active?.postMessage({
+			setup: {
+				n,
+				s,
+				mod,
+				ac,
+				nattacks,
+				modattack,
+				type: 'normal'
+			} satisfies AttackSetup,
+			nonce
+		});
+	};
 
-		const points = range(minimum, maximum + 1).map((x) => [x, P(x, n, s, mod)]);
-		const cumulative = range(minimum, maximum + 1).map((i) => [
-			i,
-			points.slice(i - minimum).reduce((p, [x, y]) => p + y, 0)
-		]);
-		pMatchExceed =
-			dc - minimum < 0
-				? 1
-				: dc - minimum >= cumulative.length
-				? 0
-				: cumulative[dc - minimum]?.[1] ?? null;
-		pExceed =
-			dc + 1 - minimum < 0
-				? 1
-				: dc + 1 - minimum >= cumulative.length
-				? 0
-				: cumulative[dc + 1 - minimum]?.[1] ?? null;
+	onMount(() => {
+		const onMessage = ({ data }: { data: { samples: number[]; nonce: number } }) => {
+			if (data.nonce !== nonce) return;
+			trials = trials.concat(data.samples);
+			requestUpdate();
+		};
 
-		const yMax = cumulative.map(([x, y]) => y).reduce((p, v) => Math.max(p, v), -1);
-		const displayMin = minimum - 1;
+		navigator.serviceWorker.addEventListener('message', onMessage);
+		return () => {
+			navigator.serviceWorker.removeEventListener('message', onMessage);
+		};
+	});
 
-		const displayMax = cumulative
-			.filter(([x, y]) => y > 0)
-			.reduce((p, [x, y]) => Math.max(p, x), -1);
+	afterUpdate(() => {
+		if (nonce === lastNonce) return;
 
-		// set the dimensions and margins of the graph
+		console.log('Requesting update');
+		lastNonce = nonce;
+		trials = [];
+		requestUpdate();
+	});
+
+	$: maximum = nattacks * (n * s + mod) * 2 + 1;
+	$: minimum = 0;
+
+	$: histogram = d3
+		.bin()
+		.value((d) => d)
+		.domain([minimum, maximum])
+		.thresholds(maximum - minimum);
+
+	$: bins = histogram(trials);
+	$: points = bins.map<[number, number]>((bin) => [bin.x0 as number, bin.length / trials.length]);
+
+	$: cumulative = range(minimum, maximum + 1).map<[number, number]>((i) => [
+		i,
+		points.slice(i - minimum).reduce((p, [x, y]) => p + y, 0)
+	]);
+
+	$: cumulativeNeg = range(minimum, maximum + 1).map<[number, number]>((i) => [
+		i,
+		points.slice(0, i - minimum + 1).reduce((p, [x, y]) => p + y, 0)
+	]);
+
+	$: expectedDamage = points.map(([amount, prob]) => amount * prob).reduce((p, v) => p + v, 0);
+
+	function makeGraph(ylabel: string, pool: [number, number][]) {
 		const margin = { top: 100, right: 100, bottom: 100, left: 100 },
 			width = containerWidth - margin.left - margin.right,
 			height = 600 - margin.top - margin.bottom;
 
+		const yMax = pool.map(([x, y]) => y).reduce((p, v) => Math.max(p, v), -1);
+		const displayMin = minimum - 1;
+		const displayMax = pool.filter(([x, y]) => y > 0).reduce((p, [x, y]) => Math.max(p, x), -1);
+
+		const xScale = d3.scaleLinear([displayMin, displayMax], [0, width]);
+		const yScale = d3.scaleLinear([0, yMax], [height, 0]);
+		const xAxis = d3.axisBottom(xScale).ticks(displayMax - displayMin);
+		const yAxis = d3.axisLeft(yScale);
+
 		// append the svg object to the body of the page
-		d3.select(div).selectChildren().remove();
 		const svg = d3
 			.select(div)
 			.append('svg')
@@ -63,12 +127,6 @@
 			.attr('height', height + margin.top + margin.bottom)
 			.append('g')
 			.attr('transform', `translate(${margin.left},${margin.top})`);
-
-		const xScale = d3.scaleLinear([displayMin, displayMax], [0, width]);
-		const yScale = d3.scaleLinear([0, yMax], [height, 0]);
-
-		const xAxis = d3.axisBottom(xScale).ticks(displayMax - displayMin);
-		const yAxis = d3.axisLeft(yScale);
 
 		svg
 			.append('g')
@@ -90,11 +148,11 @@
 			.attr('x', -height / 2 + 50)
 			.attr('y', -35)
 			.attr('transform', 'rotate(-90)')
-			.text('Probability to match or exceed');
+			.text(ylabel);
 
 		svg
 			.selectAll('rect')
-			.data(cumulative)
+			.data(pool)
 			.join('rect')
 			.attr('x', 1)
 			.attr('transform', ([x, y]) => `translate(${xScale(x - 1) + 4}, ${yScale(y)})`)
@@ -102,38 +160,100 @@
 			.attr('height', ([x, y]) => height - yScale(y))
 			.style('fill', '#69b3a2');
 	}
+
+	$: if ([n, s, mod, ac, advantage, disadvantage, nattacks, modattack]) {
+		nonce++;
+		console.log('NEW NONCE', nonce);
+	}
+
+	$: if (containerWidth && browser && div) {
+		const pHit = Math.min(1, Math.max(0, (20 - ac + modattack) / 20));
+		d3.select(div).selectChildren().remove();
+
+		makeGraph('Possibility to equal', points);
+		makeGraph('Possibility to match or exceed', cumulative);
+		makeGraph('Possibility to match or fall short', cumulativeNeg);
+	}
 </script>
+
+<svelte:head>
+	<title>Damage Calculator</title>
+</svelte:head>
 
 <div>
 	<div>
 		<label>
-			<span>Number of dice:</span>
-			<input bind:value={n} type="number" />
+			<span>Number of attacks:</span>
+			<input
+				value={nattacks}
+				on:change={(e) => e.target.value !== '' && (nattacks = parseInt(e.target.value))}
+				type="number"
+			/>
 		</label>
 	</div>
 	<div>
 		<label>
-			<span>Number of sides:</span>
-			<input bind:value={s} type="number" />
+			<span>Modifier to attack:</span>
+			<input
+				value={modattack}
+				on:change={(e) => e.target.value !== '' && (modattack = parseInt(e.target.value))}
+				type="number"
+			/>
 		</label>
 	</div>
 	<div>
 		<label>
-			<span>Modifier:</span>
-			<input bind:value={mod} type="number" />
+			<span>Per attack: number of dice:</span>
+			<input
+				value={n}
+				on:change={(e) => e.target.value !== '' && (n = parseInt(e.target.value))}
+				type="number"
+			/>
+		</label>
+	</div>
+	<div>
+		<label>
+			<span>Per attack: number of sides:</span>
+			<input
+				value={s}
+				on:change={(e) => e.target.value !== '' && (s = parseInt(e.target.value))}
+				type="number"
+			/>
+		</label>
+	</div>
+	<div>
+		<label>
+			<span>Per attack: modifier:</span>
+			<input
+				value={mod}
+				on:change={(e) => e.target.value !== '' && (mod = parseInt(e.target.value))}
+				type="number"
+			/>
 		</label>
 	</div>
 	<div style="margin-top: 2rem;">
 		<label>
-			<span>DC, AC, attack output, etc:</span>
-			<input bind:value={dc} type="number" />
+			<span>AC:</span>
+			<input
+				value={ac}
+				on:change={(e) => e.target.value !== '' && (ac = parseInt(e.target.value))}
+				type="number"
+			/>
 		</label>
-		{#if pExceed !== null && pMatchExceed !== null}
-			<span>
-				{'=>'} Probability of match or exceed: {Math.round(pMatchExceed * 100)}%. Probability of
-				exceeding: {Math.round(pExceed * 100)}%
-			</span>
-		{/if}
+		<span>
+			{'=>'} Average damage per turn: {Math.floor(expectedDamage * 1000) / 1000}.
+		</span>
+	</div>
+</div>
+<div>
+	<div>
+		<em
+			>This tool will calculate the damage distribution for a given attack by rolling the attack
+			against an enemy with a given AC 20,000,000 times.</em
+		>
+	</div>
+	<div>
+		<em>Current num. calculations: {trials.length}</em>
 	</div>
 </div>
 <div class="root" bind:clientWidth={containerWidth}>

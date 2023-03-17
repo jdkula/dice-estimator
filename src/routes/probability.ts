@@ -28,10 +28,10 @@ export function binomial(n: number, k: number): Decimal {
 		nextRow[s] = 1;
 		binomials.push(nextRow);
 	}
-	return new Decimal(binomials[n][k]);
+	return new Decimal(binomials[n][k] ?? 0);
 }
 
-export function P(output: number, n: number, s: number, mod: number): number {
+export function PDamage(output: number, n: number, s: number, mod: number): number {
 	// General formula -> https://www.lucamoroni.it/the-dice-roll-sum-problem/
 	output -= mod;
 	const kmax = Math.floor((output - n) / s);
@@ -39,7 +39,7 @@ export function P(output: number, n: number, s: number, mod: number): number {
 	const probability = Decimal.pow(s, -n).times(
 		range(0, kmax + 1)
 			.map((k) => new Decimal(k))
-			.map<Decimal>((k) =>
+			.map((k) =>
 				k
 					.mod(2)
 					.times(-2)
@@ -47,10 +47,65 @@ export function P(output: number, n: number, s: number, mod: number): number {
 					.times(binomial(n, k.toNumber()))
 					.times(binomial(output - s * k.toNumber() - 1, output - s * k.toNumber() - n))
 			)
-			.reduce<Decimal>((p, c) => p.add(c), new Decimal(0))
+			.reduce((p, c) => p.add(c), new Decimal(0))
 	);
 
-	console.log(output, '=>', probability.toString(), '=>', probability.toNumber());
-
 	return probability.toNumber();
+}
+
+function P_NHits(pHit: number, nHits: number, maxHits: number): number {
+	let prob = 1;
+	for (let i = 0; i < maxHits; i++) {
+		if (nHits > 0) {
+			prob *= pHit;
+			nHits--;
+		} else {
+			prob *= 1 - pHit;
+		}
+	}
+
+	return prob;
+}
+
+function PDamageMulti(
+	damage: number,
+	n: number,
+	s: number,
+	mod: number,
+	nAttacksHit: number
+): number {
+	// P(X damage | 1 attack hits) = PDamage(X)
+	// P(X damage | 2 attacks hit) = PDamage(X)*PDamage(0) + PDamage(X-1)*PDamage(1) etc...
+	// P(X damage | 3 attacks hit) = PPDamage(X)*PDamage(0)*PDamage(0) + PDamage(X-1)*PDamage(1)*PDamage(0) etc...
+
+	function PDamageMultiRec(remaining: number, level: number): number {
+		if (level >= nAttacksHit) return 0;
+		if (level === nAttacksHit - 1) return PDamage(remaining, n, s, mod);
+
+		let probability = 0;
+		for (let i = 0; i < remaining; i++) {
+			probability += PDamage(i, n, s, mod) * PDamageMultiRec(remaining - i, level + 1);
+		}
+		return probability;
+	}
+
+	return PDamageMultiRec(damage, 0);
+}
+
+export function P(
+	damage: number,
+	n: number,
+	s: number,
+	mod: number,
+	numAttacks: number,
+	pHit: number
+): number {
+	let probability = 0;
+
+	for (let i = 0; i <= numAttacks; i++) {
+		const probIAttacksHit = P_NHits(pHit, i, numAttacks);
+		probability += probIAttacksHit * PDamageMulti(damage, n, s, mod, i);
+	}
+
+	return probability;
 }
