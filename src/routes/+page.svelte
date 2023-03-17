@@ -153,7 +153,7 @@
       .append('text')
       .attr('class', 'x label')
       .attr('text-anchor', 'middle')
-      .attr('x', width / 2 + 90)
+      .attr('x', width / 2)
       .attr('y', height + 35)
       .text(`Attack Damage (misses as 0)`);
     svg
