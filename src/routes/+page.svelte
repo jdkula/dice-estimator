@@ -106,7 +106,7 @@
 	$: expectedDamage = points.map(([amount, prob]) => amount * prob).reduce((p, v) => p + v, 0);
 
 	function makeGraph(ylabel: string, pool: [number, number][]) {
-		const margin = { top: 100, right: 100, bottom: 100, left: 100 },
+		const margin = { top: 0, right: 50, bottom: 60, left: 100 },
 			width = containerWidth - margin.left - margin.right,
 			height = 600 - margin.top - margin.bottom;
 
@@ -245,15 +245,29 @@
 		</span>
 	</div>
 </div>
-<div>
+<div style="margin-bottom: 1rem;">
 	<div>
-		<em
-			>This tool will calculate the damage distribution for a given attack by rolling the attack
-			against an enemy with a given AC 20,000,000 times.</em
-		>
+		<em>
+			This tool will calculate the damage distribution for a given attack by rolling the attack
+			against an enemy with a certain AC 20,000,000 times.
+		</em>
 	</div>
 	<div>
-		<em>Current num. calculations: {trials.length}</em>
+		<em>
+			Nat 1s will always fail, no matter the AC. Nat 20s always hit, no matter the AC, and do double
+			damage.
+		</em>
+	</div>
+	<div>
+		<em>
+			Current num. calculations: {[...trials.length.toString()]
+				.reverse()
+				.reduce(
+					(p, v, i, arr) => [...((i + 1) % 3 === 0 && i !== arr.length - 1 ? [','] : []), v, ...p],
+					[]
+				)
+				.join('')}
+		</em>
 	</div>
 </div>
 <div class="root" bind:clientWidth={containerWidth}>
@@ -262,7 +276,7 @@
 
 <style>
 	.root {
-		width: 95vw;
+		width: 98vw;
 	}
 	.inner {
 		width: 100%;
