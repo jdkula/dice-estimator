@@ -198,7 +198,7 @@
   <h1>Damage Estimator</h1>
   <p>
     This tool will calculate the damage distribution for a given attack by rolling the attack
-    against an enemy with a certain AC {$maxTrials.toLocaleString()} times.
+    against an enemy with a certain AC {($maxTrials ?? 5_000_000).toLocaleString()} times.
   </p>
   <p>
     <em>
