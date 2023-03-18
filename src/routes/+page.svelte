@@ -57,30 +57,26 @@
   let nonce = 0;
   let lastNonce = 0;
 
-  const requestUpdate = () =>
-    window.requestIdleCallback(
-      async () => {
-        if (nTrials >= ($maxTrials ?? kDefaultMaxTrials)) return;
+  const requestUpdate = async () => {
+    if (nTrials >= ($maxTrials ?? kDefaultMaxTrials)) return;
 
-        const registration = await navigator.serviceWorker.ready;
-        registration.active?.postMessage({
-          setup: {
-            numAttacks: $nattacks ?? 1,
-            versus: $ac || 0,
-            attackRoll: $attackRoll || kAttackRollPlaceholder,
-            damageRoll: $damageRoll || kDamageRollPlaceholder,
-            adv: $type,
-            crits: $crits
-          },
-          nonce,
-          itersRequested: Math.min(
-            $trialsPerChunk ?? kDefaultTrialsPerChunk,
-            ($maxTrials ?? kDefaultMaxTrials) - nTrials
-          )
-        } satisfies IncomingMessage);
+    const registration = await navigator.serviceWorker.ready;
+    registration.active?.postMessage({
+      setup: {
+        numAttacks: $nattacks ?? 1,
+        versus: $ac || 0,
+        attackRoll: $attackRoll || kAttackRollPlaceholder,
+        damageRoll: $damageRoll || kDamageRollPlaceholder,
+        adv: $type,
+        crits: $crits
       },
-      { timeout: 500 }
-    );
+      nonce,
+      itersRequested: Math.min(
+        $trialsPerChunk ?? kDefaultTrialsPerChunk,
+        ($maxTrials ?? kDefaultMaxTrials) - nTrials
+      )
+    } satisfies IncomingMessage);
+  };
 
   onMount(() => {
     const onMessage = ({ data }: { data: ReturnMessage }) => {
