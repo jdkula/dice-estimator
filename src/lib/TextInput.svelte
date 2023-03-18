@@ -3,6 +3,7 @@
   export let value: any;
   export let placeholder: string = '';
 
+	let valueStr = value;
   let input: HTMLInputElement;
 
   function onChange(e: Event) {
@@ -13,6 +14,7 @@
     } else {
       value = e.target.value;
     }
+		valueStr = e.target.value;
   }
 </script>
 
@@ -27,7 +29,7 @@
       bind:this={input}
       class="bg-transparent px-4 pt-5 pb-2 w-full focus:outline-none placeholder:text-gray-400"
       {type}
-      value={value ?? ''}
+      value={valueStr}
       {placeholder}
       on:input={onChange}
     />

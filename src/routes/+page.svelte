@@ -16,6 +16,12 @@
       successesCrit: boolean;
     };
   }
+
+  export const kDefaultMaxTrials = 500_000;
+  export const kDefaultTrialsPerChunk = 5_000;
+
+  export const kAttackRollPlaceholder = '1d20+3';
+  export const kDamageRollPlaceholder = '2d6+1d8+3';
 </script>
 
 <script lang="ts">
@@ -35,7 +41,7 @@
   let ac = persistentStore<string>('ac', '');
   let type = persistentStore<AdvType>('adv', 'normal');
 
-  let maxTrials = persistentStore('maxTrials', 5_000_000);
+  let maxTrials = persistentStore('maxTrials', kDefaultMaxTrials);
   let trialsPerChunk = persistentStore('trialsPerChunk', 5_000);
 
   let crits = persistentStore<AttackSetup['crits']>('crits', {
@@ -55,21 +61,23 @@
   let lastNonce = 0;
 
   const requestUpdate = async () => {
-    console.log('Trials@', nTrials);
-    if (nTrials >= ($maxTrials ?? 5_000_000)) return;
+    if (nTrials >= ($maxTrials ?? kDefaultMaxTrials)) return;
 
     const registration = await navigator.serviceWorker.ready;
     registration.active?.postMessage({
       setup: {
         numAttacks: $nattacks ?? 1,
         versus: $ac ?? 0,
-        attackRoll: $attackRoll || '1d20+3',
-        damageRoll: $damageRoll || '2d6+1d8+3',
+        attackRoll: $attackRoll || kAttackRollPlaceholder,
+        damageRoll: $damageRoll || kDamageRollPlaceholder,
         adv: $type,
         crits: $crits
       },
       nonce,
-      itersRequested: Math.min($trialsPerChunk ?? 5_000, ($maxTrials ?? 5_000_000) - nTrials)
+      itersRequested: Math.min(
+        $trialsPerChunk ?? kDefaultTrialsPerChunk,
+        ($maxTrials ?? kDefaultMaxTrials) - nTrials
+      )
     } satisfies IncomingMessage);
   };
 
@@ -198,7 +206,7 @@
   <h1>Damage Estimator</h1>
   <p>
     This tool will calculate the damage distribution for a given attack by rolling the attack
-    against an enemy with a certain AC {($maxTrials ?? 5_000_000).toLocaleString()} times.
+    against an enemy with a certain AC {($maxTrials ?? kDefaultMaxTrials).toLocaleString()} times.
   </p>
   <p>
     <em>
@@ -215,8 +223,14 @@
     <summary>Advanced</summary>
 
     <div>
-      <TextInput bind:value={$maxTrials} placeholder="5000000" type="number">Max trials</TextInput>
-      <TextInput bind:value={$trialsPerChunk} placeholder="5000" type="number">
+      <TextInput bind:value={$maxTrials} placeholder={kDefaultMaxTrials.toString()} type="number"
+        >Max trials</TextInput
+      >
+      <TextInput
+        bind:value={$trialsPerChunk}
+        placeholder={kDefaultTrialsPerChunk.toString()}
+        type="number"
+      >
         Trials per chunk
       </TextInput>
     </div>
@@ -258,7 +272,7 @@ Damage: 1d8+$DMGd2
         >
       </div>
       <div>
-        <TextInput bind:value={$attackRoll} type="text" placeholder="1d20+3">
+        <TextInput bind:value={$attackRoll} type="text" placeholder={kAttackRollPlaceholder}>
           Attack Roll (roll20 format)
         </TextInput>
       </div>
@@ -333,7 +347,7 @@ Damage: 1d8+$DMGd2
     <Box>
       <h2>Damage Setup</h2>
       <div>
-        <TextInput bind:value={$damageRoll} type="text" placeholder="2d6+1d8+3">
+        <TextInput bind:value={$damageRoll} type="text" placeholder={kDamageRollPlaceholder}>
           Damage Roll (roll20 format)
         </TextInput>
       </div>
