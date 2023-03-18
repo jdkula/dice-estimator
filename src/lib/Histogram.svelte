@@ -44,7 +44,7 @@
   $: barOffset = (xtickInterval - barWidth) / 2;
 </script>
 
-<svg {width} {height}>
+<svg class="select-none" {width} {height}>
   <g transform="translate({width / 2}, {height - kHistogramMargins})">
     <text text-anchor="middle" y="10">
       {xlabel}
