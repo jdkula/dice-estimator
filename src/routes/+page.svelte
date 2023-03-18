@@ -67,7 +67,7 @@
     registration.active?.postMessage({
       setup: {
         numAttacks: $nattacks ?? 1,
-        versus: $ac ?? 0,
+        versus: $ac || 0,
         attackRoll: $attackRoll || kAttackRollPlaceholder,
         damageRoll: $damageRoll || kDamageRollPlaceholder,
         adv: $type,
