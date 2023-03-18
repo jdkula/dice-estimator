@@ -33,7 +33,7 @@
   $: xAxisY = height - kHistogramMargins - 30;
   $: yAxisX = kHistogramMargins + 30;
 
-  $: xticks = Math.min(nBuckets, 60);
+  $: xticks = Math.min(nBuckets, 40) + 1;
   $: xtickInterval = (width - yAxisX) / xticks;
   $: xtickStart = yAxisX + xtickInterval / 2;
 
@@ -58,7 +58,7 @@
   <line x1={yAxisX} x2={width} y1={xAxisY} y2={xAxisY} stroke="black" />
   <line y1={xAxisY} y2={kHistogramMargins} x1={yAxisX} x2={yAxisX} stroke="black" />
 
-  {#each { length: nBuckets } as _, i}
+  {#each { length: xticks } as _, i}
     {@const offset = xtickStart + xtickInterval * i}
     <line x1={offset} x2={offset} y1={xAxisY - 4} y2={xAxisY + 4} stroke="black" />
     <text
@@ -68,8 +68,8 @@
       alignment-baseline="text-before-edge"
       font-size="9"
     >
-      {#if nBuckets !== xticks}
-        {Math.round((i / xticks) * (bounds.xMax - bounds.xMin))}
+      {#if nBuckets + 1 !== xticks}
+        {Math.round((i / (xticks - 1)) * (bounds.xMax - bounds.xMin) * 10) / 10 + bounds.xMin}
       {:else}
         {bounds.xMin + i}
       {/if}
@@ -86,6 +86,8 @@
   {#each buckets as [x, h], i (x)}
     {@const xStart = yAxisX + barInterval * (x - bounds.xMin) + barOffset}
     {@const barHeight = (xAxisY - kHistogramMargins) * (h / bounds.yMax)}
+    {@const textX = xStart + barInterval / 2 - barOffset}
+    {@const textY = xAxisY - barHeight - 3}
     <g class="group">
       <rect
         x={xStart}
@@ -95,16 +97,15 @@
         fill={color}
         stroke={barInterval < 3 ? 'none' : 'black'}
       />
-      <text
-        x={xStart + barInterval / 2 - barOffset}
-        y={xAxisY - barHeight - 3}
-        text-anchor="middle"
-        alignment-baseline="after-edge"
-        font-size="12"
+      <g
+        transform="translate({textX}, {textY})"
         class="hidden group-hover:block"
       >
-        ({x}, {(h * 100).toFixed(2)}%)
-      </text>
+        <line x1={0} x2={0} y1={0} y2={-textY + 20} stroke="black" />
+        <text y={-textY} text-anchor="middle" alignment-baseline="before-edge" font-size="12">
+          ({x}, {(h * 100).toFixed(2)}%)
+        </text>
+      </g>
     </g>
   {/each}
 </svg>
