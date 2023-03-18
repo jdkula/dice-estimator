@@ -25,15 +25,12 @@
 </script>
 
 <script lang="ts">
-  import { browser } from '$app/environment';
   import Box from '$lib/Box.svelte';
+  import Histogram from '$lib/Histogram.svelte';
   import TextInput from '$lib/TextInput.svelte';
-  import * as d3 from 'd3';
-  import { range } from 'd3';
   import { afterUpdate, onMount } from 'svelte';
   import { persistentStore } from '../lib/browserStore';
-
-  let div: HTMLDivElement;
+  import { range } from '$lib/range';
 
   let nattacks = persistentStore<number | undefined>('nattacks', 1);
   let attackRoll = persistentStore('attackRoll', '');
@@ -131,72 +128,8 @@
 
   $: expectedDamage = points.map(([amount, prob]) => amount * prob).reduce((p, v) => p + v, 0);
 
-  function makeGraph(ylabel: string, pool: [number, number][]) {
-    const margin = { top: 20, right: 50, bottom: 60, left: 100 },
-      width = containerWidth - margin.left - margin.right,
-      height = 600 - margin.top - margin.bottom;
-
-    const yMax = pool.map(([x, y]) => y).reduce((p, v) => Math.max(p, v), -1);
-    const displayMin = minimum - 1;
-    const displayMax = pool.filter(([x, y]) => y > 0).reduce((p, [x, y]) => Math.max(p, x), -1);
-
-    const xScale = d3.scaleLinear([displayMin, displayMax], [0, width]);
-    const yScale = d3.scaleLinear([0, yMax], [height, 0]);
-    const xAxis = d3.axisBottom(xScale).ticks(displayMax - displayMin);
-    const yAxis = d3.axisLeft(yScale);
-
-    // append the svg object to the body of the page
-    const svg = d3
-      .select(div)
-      .append('svg')
-      .attr('width', width + margin.left + margin.right)
-      .attr('height', height + margin.top + margin.bottom)
-      .append('g')
-      .attr('transform', `translate(${margin.left},${margin.top})`);
-
-    svg
-      .append('g')
-      .attr('transform', `translate(${-1 * (width / (2 * (displayMax - displayMin)))}, ${height})`)
-      .call(xAxis);
-    svg.append('g').attr('transform', `translate(0,0)`).call(yAxis);
-
-    svg
-      .append('text')
-      .attr('class', 'x label')
-      .attr('text-anchor', 'middle')
-      .attr('x', width / 2)
-      .attr('y', height + 35)
-      .text(`Attack Damage (misses as 0)`);
-    svg
-      .append('text')
-      .attr('class', 'y label')
-      .attr('text-anchor', 'middle')
-      .attr('x', -height / 2)
-      .attr('y', -50)
-      .attr('transform', 'rotate(-90)')
-      .text(ylabel);
-
-    svg
-      .selectAll('rect')
-      .data(pool)
-      .join('rect')
-      .attr('x', 1)
-      .attr('transform', ([x, y]) => `translate(${xScale(x - 1) + 4}, ${yScale(y)})`)
-      .attr('width', ([x, y]) => Math.max(width / (displayMax - displayMin) - 8, 2))
-      .attr('height', ([x, y]) => height - yScale(y))
-      .style('fill', '#69b3a2');
-  }
-
   $: if ([$nattacks, $type, $attackRoll, $damageRoll, $ac, $crits, $maxTrials, $trialsPerChunk]) {
     nonce++;
-  }
-
-  $: if (containerWidth && browser && div) {
-    d3.select(div).selectChildren().remove();
-
-    makeGraph('Probability', points);
-    makeGraph('Probability of matching or exceeding', cumulative);
-    makeGraph('Probability of matching or falling short', cumulativeNeg);
   }
 </script>
 
@@ -386,7 +319,29 @@ Damage: 1d8+$DMGd2
 </div>
 <div style="margin-bottom: 1rem;" />
 <div class="root" bind:clientWidth={containerWidth}>
-  <div class="inner" bind:this={div} />
+  <div class="inner">
+    <Histogram
+      buckets={points}
+      height={600}
+      width={containerWidth}
+      xlabel="Attack Damage (misses as 0)"
+      ylabel="Probability"
+    />
+    <Histogram
+      buckets={cumulative}
+      height={600}
+      width={containerWidth}
+      xlabel="Attack Damage (misses as 0)"
+      ylabel="Probability of matching or exceeding"
+    />
+    <Histogram
+      buckets={cumulativeNeg}
+      height={600}
+      width={containerWidth}
+      xlabel="Attack Damage (misses as 0)"
+      ylabel="Probability of matching or falling short"
+    />
+  </div>
 </div>
 
 <style>
