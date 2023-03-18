@@ -91,8 +91,16 @@
       requestUpdate();
     };
 
+    const onRefresh = (e: KeyboardEvent) => {
+      if (e.altKey && e.code === 'KeyR') {
+        e.preventDefault();
+        nonce++;
+      }
+    };
+    document.addEventListener('keydown', onRefresh);
     navigator.serviceWorker.addEventListener('message', onMessage);
     return () => {
+      document.removeEventListener('keydown', onRefresh);
       navigator.serviceWorker.removeEventListener('message', onMessage);
     };
   });
@@ -166,31 +174,38 @@
       </TextInput>
     </div>
 
-    <p>
-      If you want to create a random variable to use in your roll expressions that retains its value
-      across all expressions, you can use up to one variable. Append %% and then an expression
-      X=&lt;roll&gt; to create a random variable.
-    </p>
-    <div>
-      <div>Examples:</div>
+    <article class="prose-sm prose-pre:m-0">
+      <p>To reset the current view/start re-rolling, press Alt+R.</p>
+
+      <p>
+        If you want to create a random variable to use in your roll expressions that retains its
+        value across all expressions, you can use up to one variable. Append %% and then an
+        expression X=&lt;roll&gt; to create a random variable.
+      </p>
       <div>
-        <pre><code>
-# Roll between 1 and 6 d6s
+        <div>Examples:</div>
+        <div class="p-4 bg-gray-200 rounded-lg">
+          <pre><code
+              ># Roll between 1 and 6 d6s
 Attack: 1d20 %% X=1d8
 Damage: Xd6
 
 # Could also be written as
 Attack: 1d20
-Damage: (1d8)d6
-
-# Pick between 0 and 8 d2s to add to a pool,
+Damage: (1d8)d6</code
+            ></pre>
+        </div>
+        <div class="p-4 bg-gray-200 rounded-lg mt-2">
+          <pre><code
+              ># Pick between 0 and 8 d2s to add to a pool,
 # the contents of which are randomly allocated
 # between attack and damage bonuses
 Attack: 1d20+$ATKd2 %% $POOL=1d9 - 1 %% $ATK=1d$POOL %% $DMG=($POOL - $ATK)
 Damage: 1d8+$DMGd2
 </code></pre>
+        </div>
       </div>
-    </div>
+    </article>
   </details>
 </div>
 
