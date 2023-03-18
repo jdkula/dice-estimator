@@ -103,7 +103,6 @@
   afterUpdate(() => {
     if (nonce === lastNonce) return;
 
-    console.log('Requesting update');
     lastNonce = nonce;
     buckets.clear();
     nTrials = 0;
@@ -186,7 +185,6 @@
 
   $: if ([$nattacks, $type, $attackRoll, $damageRoll, $ac, $crits, $maxTrials, $trialsPerChunk]) {
     nonce++;
-    console.log('NEW NONCE', nonce);
   }
 
   $: if (containerWidth && browser && div) {
@@ -253,9 +251,9 @@ Attack: 1d20
 Damage: (1d8)d6
 
 # Pick between 0 and 8 d2s to add to a pool,
-# the contents of which is randomly allocated
+# the contents of which are randomly allocated
 # between attack and damage bonuses
-Attack: 1d20+$ATKd2 %% $POOL=1d8 %% $ATK=1d($POOL + 1) - 1 %% $DMG=($POOL - $ATK)
+Attack: 1d20+$ATKd2 %% $POOL=1d9 - 1 %% $ATK=1d$POOL %% $DMG=($POOL - $ATK)
 Damage: 1d8+$DMGd2
 </code></pre>
       </div>
