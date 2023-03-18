@@ -1,5 +1,5 @@
 <script lang="ts" context="module">
-  export const kHistogramMargins = 50;
+  export const kHistogramMargins = 25;
 </script>
 
 <script lang="ts">
@@ -12,6 +12,9 @@
 
   export let xlabel: string;
   export let ylabel: string;
+
+  $: useableHight = height - kHistogramMargins * 2;
+  $: usableWidth = width - kHistogramMargins * 2;
 
   $: bounds = buckets.reduce(
     (prev, [bucket, obs]) => ({
@@ -28,84 +31,84 @@
     }
   );
 
-  $: nBuckets = Math.max(0, bounds.xMax - bounds.xMin);
+  $: nBuckets = Math.max(0, bounds.xMax - bounds.xMin + 1);
 
-  $: xAxisY = height - kHistogramMargins - 30;
+  $: xAxisY = useableHight - kHistogramMargins - 30;
   $: yAxisX = kHistogramMargins + 30;
 
-  $: xticks = Math.min(nBuckets, 40) + 1;
-  $: xtickInterval = (width - yAxisX) / xticks;
+  $: xticks = Math.min(nBuckets, 40);
+  $: xtickInterval = (usableWidth - yAxisX) / xticks;
   $: xtickStart = yAxisX + xtickInterval / 2;
 
   $: ytickStart = xAxisY;
 
-  $: barInterval = (width - yAxisX - xtickInterval) / nBuckets;
-  $: barWidth = barInterval * 0.8;
-  $: barOffset = (xtickInterval - barWidth) / 2;
+  $: xtickBarOffset = xtickInterval - (usableWidth - yAxisX) / nBuckets;
+  $: barInterval = (usableWidth - yAxisX - xtickBarOffset) / nBuckets;
+  $: barOffset = yAxisX + xtickBarOffset / 2;
 </script>
 
 <svg class="select-none" {width} {height}>
-  <g transform="translate({width / 2}, {height - kHistogramMargins})">
-    <text text-anchor="middle" y="10">
-      {xlabel}
-    </text>
-  </g>
-  <g transform="translate(0, {height / 2})">
-    <text transform="translate({kHistogramMargins}, 0) rotate(270)" text-anchor="middle" y="-20">
-      {ylabel}
-    </text>
-  </g>
-  <line x1={yAxisX} x2={width} y1={xAxisY} y2={xAxisY} stroke="black" />
-  <line y1={xAxisY} y2={kHistogramMargins} x1={yAxisX} x2={yAxisX} stroke="black" />
-
-  {#each { length: xticks } as _, i}
-    {@const offset = xtickStart + xtickInterval * i}
-    <line x1={offset} x2={offset} y1={xAxisY - 4} y2={xAxisY + 4} stroke="black" />
-    <text
-      x={offset}
-      y={xAxisY + 8}
-      text-anchor="middle"
-      alignment-baseline="text-before-edge"
-      font-size="9"
-    >
-      {#if nBuckets + 1 !== xticks}
-        {Math.round((i / (xticks - 1)) * (bounds.xMax - bounds.xMin) * 10) / 10 + bounds.xMin}
-      {:else}
-        {bounds.xMin + i}
-      {/if}
-    </text>
-  {/each}
-  {#each { length: yticks + 1 } as _, i}
-    {@const offset = ytickStart - (xAxisY - kHistogramMargins) * (i / yticks)}
-    <line x1={yAxisX - 4} x2={yAxisX + 4} y1={offset} y2={offset} stroke="black" />
-    <text x={yAxisX - 8} y={offset} text-anchor="end" alignment-baseline="middle" font-size="9">
-      {((i / yticks) * bounds.yMax * 100).toFixed(2)}%
-    </text>
-  {/each}
-
-  {#each buckets as [x, h], i (x)}
-    {@const xStart = yAxisX + barInterval * (x - bounds.xMin) + barOffset}
-    {@const barHeight = (xAxisY - kHistogramMargins) * (h / bounds.yMax)}
-    {@const textX = xStart + barInterval / 2 - barOffset}
-    {@const textY = xAxisY - barHeight - 3}
-    <g class="group">
-      <rect
-        x={xStart}
-        width={barWidth}
-        y={xAxisY - barHeight}
-        height={barHeight}
-        fill={color}
-        stroke={barInterval < 3 ? 'none' : 'black'}
-      />
-      <g
-        transform="translate({textX}, {textY})"
-        class="hidden group-hover:block"
-      >
-        <line x1={0} x2={0} y1={0} y2={-textY + 20} stroke="black" />
-        <text y={-textY} text-anchor="middle" alignment-baseline="before-edge" font-size="12">
-          ({x}, {(h * 100).toFixed(2)}%)
-        </text>
-      </g>
+  <g transform="translate({kHistogramMargins}, {kHistogramMargins})">
+    <g transform="translate({usableWidth / 2}, {useableHight - kHistogramMargins})">
+      <text text-anchor="middle" y="10">
+        {xlabel}
+      </text>
     </g>
-  {/each}
+    <g transform="translate(0, {useableHight / 2})">
+      <text transform="translate({kHistogramMargins}, 0) rotate(270)" text-anchor="middle" y="-20">
+        {ylabel}
+      </text>
+    </g>
+    <line x1={yAxisX} x2={usableWidth} y1={xAxisY} y2={xAxisY} stroke="black" />
+    <line y1={xAxisY} y2={kHistogramMargins} x1={yAxisX} x2={yAxisX} stroke="black" />
+
+    {#each { length: xticks } as _, i}
+      {@const offset = xtickStart + xtickInterval * i}
+      <line x1={offset} x2={offset} y1={xAxisY - 4} y2={xAxisY + 4} stroke="black" />
+      <text
+        x={offset}
+        y={xAxisY + 8}
+        text-anchor="middle"
+        alignment-baseline="text-before-edge"
+        font-size="9"
+      >
+        {#if nBuckets !== xticks}
+          {Math.round((i / (xticks - 1)) * (bounds.xMax - bounds.xMin) * 10) / 10 + bounds.xMin}
+        {:else}
+          {bounds.xMin + i}
+        {/if}
+      </text>
+    {/each}
+    {#each { length: yticks + 1 } as _, i}
+      {@const offset = ytickStart - (xAxisY - kHistogramMargins) * (i / yticks)}
+      <line x1={yAxisX - 4} x2={yAxisX + 4} y1={offset} y2={offset} stroke="black" />
+      <text x={yAxisX - 8} y={offset} text-anchor="end" alignment-baseline="middle" font-size="9">
+        {((i / yticks) * bounds.yMax * 100).toFixed(2)}%
+      </text>
+    {/each}
+
+    {#each buckets as [x, h], i (x)}
+      {@const xStart = barOffset + barInterval * (x - bounds.xMin)}
+      {@const barHeight = (xAxisY - kHistogramMargins) * (h / bounds.yMax)}
+      {@const textX = xStart + barInterval / 2}
+      {@const textY = xAxisY - barHeight}
+      <g class="group">
+        <g transform="translate({xStart}, {xAxisY - barHeight})">
+          <rect
+            width={barInterval}
+            height={barHeight}
+            fill={color}
+            stroke={barInterval < 3 ? 'none' : 'black'}
+            transform="translate({barInterval * 0.1}, 0) scale({0.8}, 1)"
+          />
+        </g>
+        <g transform="translate({textX}, {textY})" class="hidden group-hover:block">
+          <line x1={0} x2={0} y1={0} y2={-textY + 20} stroke="black" />
+          <text y={-textY} text-anchor="middle" alignment-baseline="before-edge" font-size="12">
+            ({x}, {(h * 100).toFixed(2)}%)
+          </text>
+        </g>
+      </g>
+    {/each}
+  </g>
 </svg>
