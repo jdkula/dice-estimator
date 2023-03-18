@@ -9,7 +9,8 @@ export function persistentStore<T>(key: string, def: T): Writable<T> {
       store.set(JSON.parse(localStorage.getItem(key)));
     }
     store.subscribe((value) => {
-      localStorage.setItem(key, JSON.stringify(value));
+      if (value === undefined) localStorage.removeItem(key);
+      else localStorage.setItem(key, JSON.stringify(value));
     });
   }
 
