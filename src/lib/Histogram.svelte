@@ -51,6 +51,11 @@
   $: xtickBarOffset = xtickInterval - (zAxisX - yAxisX) / nBuckets;
   $: barInterval = (zAxisX - yAxisX - xtickBarOffset) / nBuckets;
   $: barOffset = yAxisX + xtickBarOffset / 2;
+
+  $: hideZ =
+    Number.isNaN(bounds.zMin) ||
+    !Number.isFinite(bounds.zMin) ||
+    (bounds.zMax === 0 && bounds.zMin === 0);
 </script>
 
 <svg class="select-none" {width} {height}>
@@ -67,7 +72,7 @@
     </g>
     <line x1={yAxisX} x2={zAxisX} y1={xAxisY} y2={xAxisY} stroke="black" />
     <line y1={xAxisY} y2={kHistogramMargins} x1={yAxisX} x2={yAxisX} stroke="black" />
-    {#if !Number.isNaN(bounds.zMin) && !Number.isNaN(bounds.zMax) && !(bounds.zMin === 0 && bounds.zMax === 0)}
+    {#if !hideZ}
       <line y1={xAxisY} y2={kHistogramMargins} x1={zAxisX} x2={zAxisX} stroke="black" />
     {/if}
 
@@ -95,7 +100,7 @@
         {((i / yticks) * bounds.yMax * 100).toFixed(2)}%
       </text>
     {/each}
-    {#if !Number.isNaN(bounds.zMin) && !Number.isNaN(bounds.zMax) && !(bounds.zMin === 0 && bounds.zMax === 0)}
+    {#if !hideZ}
       {#each { length: yticks + 1 } as _, i}
         {@const offset = ztickStart - (xAxisY - kHistogramMargins) * (i / yticks)}
         <line x1={zAxisX - 4} x2={zAxisX + 4} y1={offset} y2={offset} stroke="black" />
@@ -132,7 +137,7 @@
             ({x}, {(h * 100).toFixed(2)}%)
           </text>
         </g>
-        {#if z !== undefined && !(bounds.zMin === 0 && bounds.zMax === 0)}
+        {#if z !== undefined && !hideZ}
           {@const pointY = xAxisY - (xAxisY - kHistogramMargins) * (z / bounds.zMax)}
           <circle
             cx={xStart + barInterval / 2}

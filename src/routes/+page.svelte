@@ -3,7 +3,7 @@
   export type AdvType = 'advantage' | 'disadvantage' | 'normal';
 
   export interface AttackSetup {
-    numAttacks: number;
+    numAttacks: string;
     attackRoll: string;
 
     cost: string;
@@ -35,7 +35,7 @@
   import { persistentStore } from '../lib/browserStore';
   import { range } from '$lib/range';
 
-  let nattacks = persistentStore<number | undefined>('nattacks', 1);
+  let nattacks = persistentStore('nattacks', '');
   let attackRoll = persistentStore('attackRoll', '');
   let damageRoll = persistentStore('damageRoll', '');
   let ac = persistentStore<string>('ac', '');
@@ -54,7 +54,7 @@
 
   let containerWidth: number = 0;
 
-  const buckets = new Map<number, { costSum: number; observations: number }>(); // damage -> observations
+  const buckets = new Map<number, { costSum: number; observations: number; attacks: number; }>(); // damage -> observations
   let nTrials = 0;
   let nAttacks = 0;
   let nHit = 0;
@@ -68,7 +68,7 @@
     const registration = await navigator.serviceWorker.ready;
     registration.active?.postMessage({
       setup: {
-        numAttacks: $nattacks ?? 1,
+        numAttacks: $nattacks?.toString() || '1',
         versus: $ac || 0,
         attackRoll: $attackRoll || kAttackRollPlaceholder,
         damageRoll: $damageRoll || kDamageRollPlaceholder,
@@ -88,16 +88,16 @@
   onMount(() => {
     const onMessage = ({ data }: { data: ReturnMessage }) => {
       if (data.nonce !== nonce) return;
-      console.log(data);
-      for (const [key, { damageObservations, costTotal }] of data.buckets) {
-        const costData = buckets.get(key) ?? { costSum: 0, observations: 0 };
+      for (const [key, { damageObservations, costTotal, atks }] of data.buckets) {
+        const costData = buckets.get(key) ?? { costSum: 0, observations: 0, attacks: 0 };
         costData.observations += damageObservations;
         costData.costSum += costTotal;
+        costData.attacks += atks;
         buckets.set(key, costData);
       }
 
       nTrials += data.numTrials;
-      nAttacks += data.numTrials * ($nattacks ?? 1);
+      nAttacks += data.numAttacks;
       nHit += data.numHit;
 
       requestUpdate();
@@ -128,10 +128,10 @@
     requestUpdate();
   });
 
-  $: points = [...buckets].map<[number, number, number]>(([n, { costSum, observations }]) => [
+  $: points = [...buckets].map<[number, number, number]>(([n, { costSum, observations, attacks }]) => [
     n,
     observations / nTrials,
-    costSum / observations
+    costSum / attacks
   ]);
   $: maximum = points.map(([x]) => x).reduce((p, v) => Math.max(p, v), Number.NEGATIVE_INFINITY);
   $: minimum = points.map(([x]) => x).reduce((p, v) => Math.min(p, v), Number.POSITIVE_INFINITY);
@@ -153,8 +153,6 @@
   $: if ([$nattacks, $type, $attackRoll, $damageRoll, $ac, $crits, $maxTrials, $trialsPerChunk, $cost, $reduction]) {
     nonce++;
   }
-
-  $: console.log(points)
 </script>
 
 <svelte:head>
@@ -234,7 +232,7 @@ Damage: 1d8+$DMGd2
     <Box>
       <h2>Attack Setup</h2>
       <div>
-        <TextInput bind:value={$nattacks} placeholder="1" type="number">Number of attacks</TextInput
+        <TextInput bind:value={$nattacks} placeholder="1" type="text">Number of attacks</TextInput
         >
       </div>
       <div>

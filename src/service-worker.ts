@@ -19,9 +19,10 @@ export interface IncomingMessage {
 }
 
 export interface ReturnMessage {
-  buckets: [number, { damageObservations: number; costTotal: number }][];
+  buckets: [number, { damageObservations: number; costTotal: number; atks: number }][];
   numTrials: number;
   numHit: number;
+  numAttacks: number;
   nonce: number;
 }
 
@@ -52,7 +53,7 @@ function simulate(
   roller: DiceRoller,
   getRolls: GetRolls,
   setup: AttackSetup
-): [damage: number, hit: number, cost: number] {
+): [damage: number, attacks: number, hit: number, cost: number] {
   const { attackRoll, damageRoll, acRoll, costRoll, reductionRoll } = getRolls();
 
   const roll = (r: ParsedRoll, crits = true) => {
@@ -71,8 +72,9 @@ function simulate(
   let sum = 0;
   let numHit = 0;
   let costSum = 0;
+  const numAttacks = roller.rollValue(setup.numAttacks);
 
-  for (let atk = 0; atk < setup.numAttacks; atk++) {
+  for (let atk = 0; atk < numAttacks; atk++) {
     costSum += roller.rollParsed(costRoll).value;
     const attackResult =
       setup.adv === 'advantage'
@@ -93,7 +95,7 @@ function simulate(
     sum += Math.max(0, damage - roller.rollParsed(reductionRoll).value);
   }
 
-  return [sum, numHit, costSum / setup.numAttacks];
+  return [sum, numAttacks, numHit, costSum];
 }
 
 function parseVariables(
@@ -127,13 +129,14 @@ function evaluateVariables(
   const values: Array<{ name: string; value: number }> = [];
 
   for (let i = 0; i < vars.length; i++) {
-    const variable = vars[i];
+    const { name } = vars[i];
+    let { roll } = vars[i];
     for (let j = 0; j < i; j++) {
       const { name, value } = values[j];
-      variable.roll = variable.roll.replaceAll(name, value.toString());
+      roll = roll.replaceAll(name, value.toString());
     }
-    const value = roller.rollValue(variable.roll);
-    values.push({ name: variable.name, value });
+    const value = roller.rollValue(roll);
+    values.push({ name, value });
   }
 
   return values;
@@ -169,7 +172,7 @@ sw.addEventListener('message', (event) => {
 
   const getRolls: GetRolls = () => {
     const evaluated = evaluateVariables(roller, vars);
-    return {
+    const rolls = {
       acRoll: cachedAc ?? roller.parse(replaceVariables(data.setup.versus.toString(), evaluated)),
       attackRoll: cachedAttack ?? roller.parse(replaceVariables(attackString, evaluated)),
       costRoll: cachedCost ?? roller.parse(replaceVariables(data.setup.cost, evaluated)),
@@ -177,24 +180,33 @@ sw.addEventListener('message', (event) => {
       reductionRoll:
         cachedReduction ?? roller.parse(replaceVariables(data.setup.reduction, evaluated))
     };
+
+    return rolls;
   };
 
-  const buckets = new Map<number, { damageObservations: number; costTotal: number }>();
+  const buckets = new Map<
+    number,
+    { damageObservations: number; costTotal: number; atks: number }
+  >();
 
   let numHit = 0;
+  let numAttacks = 0;
   for (let i = 0; i < data.itersRequested; i++) {
-    const [result, n, cost] = simulate(roller, getRolls, data.setup);
+    const [result, atk, n, cost] = simulate(roller, getRolls, data.setup);
     numHit += n;
-    const bucket = buckets.get(result) ?? { costTotal: 0, damageObservations: 0 };
+    numAttacks += atk;
+    const bucket = buckets.get(result) ?? { costTotal: 0, damageObservations: 0, atks: 0 };
     bucket.costTotal += cost;
     bucket.damageObservations += 1;
+    bucket.atks += atk;
     buckets.set(result, bucket);
   }
 
   event.source?.postMessage({
     buckets: [...buckets],
     numTrials: data.itersRequested,
-    numHit: numHit,
+    numAttacks,
+    numHit,
     nonce: data.nonce
   } satisfies ReturnMessage);
 });
