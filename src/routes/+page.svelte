@@ -181,7 +181,7 @@
 <article class="prose-sm md:prose xl:prose-lg max-w-full md:max-w-full xl:max-w-full">
   <h1>Damage Estimator</h1>
   <p>
-    This tool will calculat e the damage distribution for a given attack by rolling the attack
+    This tool will calculate the damage distribution for a given attack by rolling the attack
     against an enemy with a certain AC {($maxTrials ?? kDefaultMaxTrials).toLocaleString()} times.
   </p>
   <p>
