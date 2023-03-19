@@ -383,6 +383,7 @@ Damage: 1d8+$DMGd2
       width={containerWidth}
       xlabel="Attack Damage (misses as 0)"
       ylabel="Probability"
+      zlabel="Attack cost"
     />
     <Histogram
       buckets={cumulative}

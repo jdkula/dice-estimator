@@ -12,6 +12,7 @@
 
   export let xlabel: string;
   export let ylabel: string;
+  export let zlabel: string = "";
 
   $: useableHight = height - kHistogramMargins * 2;
   $: usableWidth = width - kHistogramMargins * 2;
@@ -55,7 +56,7 @@
   $: hideZ =
     Number.isNaN(bounds.zMin) ||
     !Number.isFinite(bounds.zMin) ||
-    (bounds.zMax === 0 && bounds.zMin === 0);
+    (bounds.zMax === 0 && bounds.zMin === 0) || !zlabel;
 </script>
 
 <svg class="select-none" {width} {height}>
@@ -70,6 +71,13 @@
         {ylabel}
       </text>
     </g>
+    {#if !hideZ}
+    <g transform="translate({usableWidth}, {useableHight / 2})">
+      <text transform="translate({-kHistogramMargins}, 0) rotate(90)" text-anchor="middle" y="-20">
+        {zlabel}
+      </text>
+    </g>
+    {/if}
     <line x1={yAxisX} x2={zAxisX} y1={xAxisY} y2={xAxisY} stroke="black" />
     <line y1={xAxisY} y2={kHistogramMargins} x1={yAxisX} x2={yAxisX} stroke="black" />
     {#if !hideZ}
