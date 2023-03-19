@@ -210,3 +210,11 @@ sw.addEventListener('message', (event) => {
     nonce: data.nonce
   } satisfies ReturnMessage);
 });
+
+sw.addEventListener('install', (e) => {
+  sw.skipWaiting();
+});
+
+sw.addEventListener('activate', (e) => {
+  e.waitUntil(sw.clients.claim());
+});

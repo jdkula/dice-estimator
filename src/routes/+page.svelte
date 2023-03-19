@@ -54,7 +54,7 @@
 
   let containerWidth: number = 0;
 
-  const buckets = new Map<number, { costSum: number; observations: number; attacks: number; }>(); // damage -> observations
+  const buckets = new Map<number, { costSum: number; observations: number; attacks: number }>(); // damage -> observations
   let nTrials = 0;
   let nAttacks = 0;
   let nHit = 0;
@@ -109,11 +109,17 @@
         nonce++;
       }
     };
+    const onUpdate = () => {
+      nonce++;
+    };
+
     document.addEventListener('keydown', onRefresh);
     navigator.serviceWorker.addEventListener('message', onMessage);
+    navigator.serviceWorker.addEventListener('controllerchange', onUpdate);
     return () => {
       document.removeEventListener('keydown', onRefresh);
       navigator.serviceWorker.removeEventListener('message', onMessage);
+      navigator.serviceWorker.removeEventListener('controllerchange', onUpdate);
     };
   });
 
@@ -150,7 +156,20 @@
 
   $: expectedDamage = points.map(([amount, prob]) => amount * prob).reduce((p, v) => p + v, 0);
 
-  $: if ([$nattacks, $type, $attackRoll, $damageRoll, $ac, $crits, $maxTrials, $trialsPerChunk, $cost, $reduction]) {
+  $: if (
+    [
+      $nattacks,
+      $type,
+      $attackRoll,
+      $damageRoll,
+      $ac,
+      $crits,
+      $maxTrials,
+      $trialsPerChunk,
+      $cost,
+      $reduction
+    ]
+  ) {
     nonce++;
   }
 </script>
@@ -162,7 +181,7 @@
 <article class="prose-sm md:prose xl:prose-lg max-w-full md:max-w-full xl:max-w-full">
   <h1>Damage Estimator</h1>
   <p>
-    This tool will calculate the damage distribution for a given attack by rolling the attack
+    This tool will calculat e the damage distribution for a given attack by rolling the attack
     against an enemy with a certain AC {($maxTrials ?? kDefaultMaxTrials).toLocaleString()} times.
   </p>
   <p>
@@ -171,7 +190,7 @@
     </em>
   </p>
   <p>
-    <em> If things don't work, hard reload the page a couple times. Cmd+Shift+R / Ctrl+Shift+R </em>
+    <em> If things don't work, try reloading the page. </em>
   </p>
 </article>
 
@@ -232,8 +251,7 @@ Damage: 1d8+$DMGd2
     <Box>
       <h2>Attack Setup</h2>
       <div>
-        <TextInput bind:value={$nattacks} placeholder="1" type="text">Number of attacks</TextInput
-        >
+        <TextInput bind:value={$nattacks} placeholder="1" type="text">Number of attacks</TextInput>
       </div>
       <div>
         <TextInput bind:value={$attackRoll} type="text" placeholder={kAttackRollPlaceholder}>
