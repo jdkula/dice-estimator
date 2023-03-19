@@ -223,7 +223,7 @@
         <div>Examples:</div>
         <div class="p-4 bg-gray-200 rounded-lg">
           <pre><code
-              ># Roll between 1 and 6 d6s
+              ># Roll between 1 and 8 d6s
 Attack: 1d20 %% X=1d8
 Damage: Xd6
 
@@ -237,7 +237,7 @@ Damage: (1d8)d6</code
               ># Pick between 0 and 8 d2s to add to a pool,
 # the contents of which are randomly allocated
 # between attack and damage bonuses
-Attack: 1d20+$ATKd2 %% $POOL=1d9 - 1 %% $ATK=1d$POOL %% $DMG=($POOL - $ATK)
+Attack: 1d20+$ATKd2 %% $POOL=1d9 - 1 %% $ATK=1d($POOL+1)-1 %% $DMG=($POOL - $ATK)
 Damage: 1d8+$DMGd2
 </code></pre>
         </div>
