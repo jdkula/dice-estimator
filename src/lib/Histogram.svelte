@@ -13,12 +13,13 @@
 
   export let xlabel: string;
   export let ylabel: string;
-  export let zlabel: string = "";
+  export let zlabel: string = '';
 
   $: useableHight = height - kHistogramMargins * 2;
   $: usableWidth = width - kHistogramMargins * 2;
+  $: sorted = buckets.sort(([a], [b]) => a - b);
 
-  $: bounds = buckets.reduce(
+  $: bounds = sorted.reduce(
     (prev, [bucket, obs, cost = null]) => ({
       xMin: Math.min(prev.xMin, bucket),
       xMax: Math.max(prev.xMax, bucket),
@@ -57,7 +58,8 @@
   $: hideZ =
     Number.isNaN(bounds.zMin) ||
     !Number.isFinite(bounds.zMin) ||
-    (bounds.zMax === 0 && bounds.zMin === 0) || !zlabel;
+    (bounds.zMax === 0 && bounds.zMin === 0) ||
+    !zlabel;
 </script>
 
 <svg class="select-none" {width} {height}>
@@ -73,11 +75,15 @@
       </text>
     </g>
     {#if !hideZ}
-    <g transform="translate({usableWidth}, {useableHight / 2})">
-      <text transform="translate({-kHistogramMargins}, 0) rotate(90)" text-anchor="middle" y="-20">
-        {zlabel}
-      </text>
-    </g>
+      <g transform="translate({usableWidth}, {useableHight / 2})">
+        <text
+          transform="translate({-kHistogramMargins}, 0) rotate(90)"
+          text-anchor="middle"
+          y="-20"
+        >
+          {zlabel}
+        </text>
+      </g>
     {/if}
     <line x1={yAxisX} x2={zAxisX} y1={xAxisY} y2={xAxisY} stroke="black" />
     <line y1={xAxisY} y2={kHistogramMargins} x1={yAxisX} x2={yAxisX} stroke="black" />
@@ -127,8 +133,11 @@
       {/each}
     {/if}
 
-    {#each buckets as [x, h, z], i (x)}
-      {@const xStart = barOffset + barInterval * (x - bounds.xMin)}
+    {#each sorted as [x, h, z], i (x)}
+      {@const xStart_ =
+        barOffset +
+        ((barInterval * (x - bounds.xMin)) / (bounds.xMax - bounds.xMin)) * (nBuckets - 1)}
+      {@const xStart = Number.isNaN(xStart_) ? barOffset : xStart_}
       {@const barHeight = (xAxisY - kHistogramMargins) * (h / bounds.yMax)}
       {@const textX = xStart + barInterval / 2}
       {@const textY = xAxisY - barHeight}
