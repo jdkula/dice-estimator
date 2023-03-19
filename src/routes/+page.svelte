@@ -335,7 +335,7 @@ Damage: 1d8+$DMGd2
       </div>
       <div>
         <TextInput bind:value={$cost} type="text" placeholder="0">
-          Attack Cost (roll20 format)
+          Per-Attack Cost (roll20 format)
         </TextInput>
       </div>
     </Box>
@@ -383,7 +383,7 @@ Damage: 1d8+$DMGd2
       width={containerWidth}
       xlabel="Attack Damage (misses as 0)"
       ylabel="Probability"
-      zlabel="Attack cost"
+      zlabel="Avg. Round Cost (cumulative across all attacks)"
     />
     <Histogram
       buckets={cumulative}

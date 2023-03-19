@@ -5,6 +5,7 @@
 <script lang="ts">
   export let buckets: [number, number, undefined | number][];
   export let color = '#69b3a2';
+  export let zcolor = 'green';
   export let yticks = 10;
 
   export let width: number;
@@ -81,7 +82,9 @@
     <line x1={yAxisX} x2={zAxisX} y1={xAxisY} y2={xAxisY} stroke="black" />
     <line y1={xAxisY} y2={kHistogramMargins} x1={yAxisX} x2={yAxisX} stroke="black" />
     {#if !hideZ}
+      <rect width="10" height="10" x={yAxisX - 5} y={xAxisY + 5} fill={color} stroke="black" />
       <line y1={xAxisY} y2={kHistogramMargins} x1={zAxisX} x2={zAxisX} stroke="black" />
+      <circle r="5" cx={zAxisX} cy={xAxisY + 10} fill={zcolor} stroke="black" />
     {/if}
 
     {#each { length: xticks } as _, i}
@@ -144,8 +147,9 @@
           <circle
             cx={xStart + barInterval / 2}
             cy={pointY}
-            fill="Green"
-            r={Math.min(barInterval * 0.8 * 0.5 * 0.8, 20)}
+            fill={zcolor}
+            stroke="black"
+            r={Math.min(barInterval * 0.8 * 0.5 * 0.8, 8)}
           />
         {/if}
         <g transform="translate({textX}, {textY})" class="hidden group-hover:block">
