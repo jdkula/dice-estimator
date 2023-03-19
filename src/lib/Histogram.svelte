@@ -131,21 +131,25 @@
             transform="translate({barInterval * 0.1}, 0) scale({0.8}, 1)"
           />
         </g>
-        <g transform="translate({textX}, {textY})" class="hidden group-hover:block">
-          <line x1={0} x2={0} y1={0} y2={-textY + 20} stroke="black" />
-          <text y={-textY} text-anchor="middle" alignment-baseline="before-edge" font-size="12">
-            ({x}, {(h * 100).toFixed(2)}%)
-          </text>
-        </g>
         {#if z !== undefined && !hideZ}
           {@const pointY = xAxisY - (xAxisY - kHistogramMargins) * (z / bounds.zMax)}
           <circle
             cx={xStart + barInterval / 2}
             cy={pointY}
             fill="Green"
-            r={barInterval * 0.8 * 0.5 * 0.8}
+            r={Math.min(barInterval * 0.8 * 0.5 * 0.8, 20)}
           />
         {/if}
+        <g transform="translate({textX}, {textY})" class="hidden group-hover:block">
+          <line x1={0} x2={0} y1={0} y2={-textY + 20} stroke="black" />
+          <text y={-textY} text-anchor="middle" alignment-baseline="before-edge" font-size="12">
+            {#if z !== undefined && !hideZ}
+              ({x}, {(h * 100).toFixed(2)}%, {Math.floor(z * 100) / 100})
+            {:else}
+              ({x}, {(h * 100).toFixed(2)}%)
+            {/if}
+          </text>
+        </g>
       </g>
     {/each}
   </g>

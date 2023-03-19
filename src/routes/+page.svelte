@@ -128,10 +128,10 @@
     requestUpdate();
   });
 
-  $: points = [...buckets].map<[number, number, number]>(([n, { costSum, observations, attacks }]) => [
+  $: points = [...buckets].map<[number, number, number]>(([n, { costSum, observations }]) => [
     n,
     observations / nTrials,
-    costSum / attacks
+    costSum / observations
   ]);
   $: maximum = points.map(([x]) => x).reduce((p, v) => Math.max(p, v), Number.NEGATIVE_INFINITY);
   $: minimum = points.map(([x]) => x).reduce((p, v) => Math.min(p, v), Number.POSITIVE_INFINITY);
