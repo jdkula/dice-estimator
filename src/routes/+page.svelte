@@ -6,6 +6,9 @@
     numAttacks: number;
     attackRoll: string;
 
+    cost: string;
+    reduction: string;
+
     damageRoll: string;
     adv?: AdvType;
 
@@ -36,6 +39,8 @@
   let attackRoll = persistentStore('attackRoll', '');
   let damageRoll = persistentStore('damageRoll', '');
   let ac = persistentStore<string>('ac', '');
+  let reduction = persistentStore<string>('reduction', '');
+  let cost = persistentStore<string>('cost', '');
   let type = persistentStore<AdvType>('adv', 'normal');
 
   let maxTrials = persistentStore('maxTrials', kDefaultMaxTrials);
@@ -49,7 +54,7 @@
 
   let containerWidth: number = 0;
 
-  const buckets = new Map<number, number>();
+  const buckets = new Map<number, { costSum: number; observations: number }>(); // damage -> observations
   let nTrials = 0;
   let nAttacks = 0;
   let nHit = 0;
@@ -68,7 +73,9 @@
         attackRoll: $attackRoll || kAttackRollPlaceholder,
         damageRoll: $damageRoll || kDamageRollPlaceholder,
         adv: $type,
-        crits: $crits
+        crits: $crits,
+        cost: $cost || '0',
+        reduction: $reduction || '0'
       },
       nonce,
       itersRequested: Math.min(
@@ -81,9 +88,14 @@
   onMount(() => {
     const onMessage = ({ data }: { data: ReturnMessage }) => {
       if (data.nonce !== nonce) return;
-      for (const [key, nResults] of data.buckets) {
-        buckets.set(key, (buckets.get(key) ?? 0) + nResults);
+      console.log(data);
+      for (const [key, { damageObservations, costTotal }] of data.buckets) {
+        const costData = buckets.get(key) ?? { costSum: 0, observations: 0 };
+        costData.observations += damageObservations;
+        costData.costSum += costTotal;
+        buckets.set(key, costData);
       }
+
       nTrials += data.numTrials;
       nAttacks += data.numTrials * ($nattacks ?? 1);
       nHit += data.numHit;
@@ -116,25 +128,33 @@
     requestUpdate();
   });
 
-  $: points = [...buckets].map<[number, number]>(([n, h]) => [n, h / nTrials]);
+  $: points = [...buckets].map<[number, number, number]>(([n, { costSum, observations }]) => [
+    n,
+    observations / nTrials,
+    costSum / observations
+  ]);
   $: maximum = points.map(([x]) => x).reduce((p, v) => Math.max(p, v), Number.NEGATIVE_INFINITY);
   $: minimum = points.map(([x]) => x).reduce((p, v) => Math.min(p, v), Number.POSITIVE_INFINITY);
 
-  $: cumulative = range(minimum, maximum + 1).map<[number, number]>((i) => [
+  $: cumulative = range(minimum, maximum + 1).map<[number, number, undefined]>((i) => [
     i,
-    points.slice(i - minimum).reduce((p, [x, y]) => p + y, 0)
+    points.slice(i - minimum).reduce((p, [x, y]) => p + y, 0),
+    undefined
   ]);
 
-  $: cumulativeNeg = range(minimum, maximum + 1).map<[number, number]>((i) => [
+  $: cumulativeNeg = range(minimum, maximum + 1).map<[number, number, undefined]>((i) => [
     i,
-    points.slice(0, i - minimum + 1).reduce((p, [x, y]) => p + y, 0)
+    points.slice(0, i - minimum + 1).reduce((p, [x, y]) => p + y, 0),
+    undefined
   ]);
 
   $: expectedDamage = points.map(([amount, prob]) => amount * prob).reduce((p, v) => p + v, 0);
 
-  $: if ([$nattacks, $type, $attackRoll, $damageRoll, $ac, $crits, $maxTrials, $trialsPerChunk]) {
+  $: if ([$nattacks, $type, $attackRoll, $damageRoll, $ac, $crits, $maxTrials, $trialsPerChunk, $cost, $reduction]) {
     nonce++;
   }
+
+  $: console.log(points)
 </script>
 
 <svelte:head>
@@ -297,12 +317,22 @@ Damage: 1d8+$DMGd2
           Damage Roll (roll20 format)
         </TextInput>
       </div>
+      <div>
+        <TextInput bind:value={$cost} type="text" placeholder="0">
+          Attack Cost (roll20 format)
+        </TextInput>
+      </div>
     </Box>
 
     <Box>
       <h2>Opponent Setup</h2>
       <div>
         <TextInput bind:value={$ac} type="text" placeholder="0">AC (roll20 format)</TextInput>
+      </div>
+      <div>
+        <TextInput bind:value={$reduction} type="text" placeholder="0">
+          Damage Reduce (roll20 format)
+        </TextInput>
       </div>
     </Box>
   </div>

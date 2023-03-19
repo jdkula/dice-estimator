@@ -19,7 +19,7 @@ export interface IncomingMessage {
 }
 
 export interface ReturnMessage {
-  buckets: [number, number][];
+  buckets: [number, { damageObservations: number; costTotal: number }][];
   numTrials: number;
   numHit: number;
   nonce: number;
@@ -44,14 +44,16 @@ type GetRolls = () => {
   attackRoll: ParsedRoll;
   damageRoll: ParsedRoll;
   acRoll: ParsedRoll;
+  reductionRoll: ParsedRoll;
+  costRoll: ParsedRoll;
 };
 
 function simulate(
   roller: DiceRoller,
   getRolls: GetRolls,
   setup: AttackSetup
-): [damage: number, hit: number] {
-  const { attackRoll, damageRoll, acRoll } = getRolls();
+): [damage: number, hit: number, cost: number] {
+  const { attackRoll, damageRoll, acRoll, costRoll, reductionRoll } = getRolls();
 
   const roll = (r: ParsedRoll, crits = true) => {
     const result = roller.rollParsed(r);
@@ -68,8 +70,10 @@ function simulate(
 
   let sum = 0;
   let numHit = 0;
+  let costSum = 0;
 
   for (let atk = 0; atk < setup.numAttacks; atk++) {
+    costSum += roller.rollParsed(costRoll).value;
     const attackResult =
       setup.adv === 'advantage'
         ? Math.max(roll(attackRoll), roll(attackRoll))
@@ -86,77 +90,105 @@ function simulate(
     let damage = roll(damageRoll, /* crits = */ false);
     if (setup.crits.successesCrit && attackResult === Number.POSITIVE_INFINITY) damage *= 2;
 
-    sum += damage;
+    sum += Math.max(0, damage - roller.rollParsed(reductionRoll).value);
   }
 
-  return [sum, numHit];
+  return [sum, numHit, costSum / setup.numAttacks];
+}
+
+function parseVariables(
+  s: string
+): [roll: string, variables: Array<{ name: string; roll: string }>] {
+  const [attackString, ...vars] = s.split('%%').map((x) => x.trim());
+
+  return [
+    attackString,
+    vars.map((varString) => {
+      const eq = varString.indexOf('=');
+      const name = varString.slice(0, eq).trim();
+      const roll = varString.slice(eq + 1).trim();
+
+      return { name, roll };
+    })
+  ];
+}
+
+function hasVariables(roll: string, variables: Array<{ name: string; roll: string }>): boolean {
+  for (const { name } of variables) {
+    if (roll.indexOf(name) !== -1) return true;
+  }
+  return false;
+}
+
+function evaluateVariables(
+  roller: DiceRoller,
+  vars: Array<{ name: string; roll: string }>
+): Array<{ name: string; value: number }> {
+  const values: Array<{ name: string; value: number }> = [];
+
+  for (let i = 0; i < vars.length; i++) {
+    const variable = vars[i];
+    for (let j = 0; j < i; j++) {
+      const { name, value } = values[j];
+      variable.roll = variable.roll.replaceAll(name, value.toString());
+    }
+    const value = roller.rollValue(variable.roll);
+    values.push({ name: variable.name, value });
+  }
+
+  return values;
+}
+
+function replaceVariables(roll: string, values: Array<{ name: string; value: number }>): string {
+  for (const { name, value } of values) {
+    roll = roll.replaceAll(name, value.toString());
+  }
+  return roll;
 }
 
 sw.addEventListener('message', (event) => {
   const data = event.data as IncomingMessage;
 
-  const [attackString, ...vars] = data.setup.attackRoll.split('%%').map((x) => x.trim());
-  const damageString = data.setup.damageRoll;
-  const acString =
-    typeof data.setup.versus === 'number' ? data.setup.versus.toString() : data.setup.versus;
+  const [attackString, vars] = parseVariables(data.setup.attackRoll);
 
   const roller = new DiceRoller();
 
-  let getRolls: GetRolls;
-  if (vars.length > 0) {
-    const varStrings: Record<string, string> = {};
-    for (const variable of vars) {
-      const eq = variable.indexOf('=');
-      const name = variable.slice(0, eq).trim();
-      const rollString = variable.slice(eq + 1).trim();
-      varStrings[name] = rollString;
-    }
-    getRolls = () => {
-      let attack = attackString;
-      let damage = damageString;
-      let ac = acString;
+  const cachedAttack = hasVariables(attackString, vars)
+    ? null
+    : roller.parse(data.setup.attackRoll);
+  const cachedDamage = hasVariables(data.setup.damageRoll, vars)
+    ? null
+    : roller.parse(data.setup.damageRoll);
+  const cachedAc = hasVariables(data.setup.versus.toString(), vars)
+    ? null
+    : roller.parse(data.setup.versus.toString());
+  const cachedCost = hasVariables(data.setup.cost, vars) ? null : roller.parse(data.setup.cost);
+  const cachedReduction = hasVariables(data.setup.reduction, vars)
+    ? null
+    : roller.parse(data.setup.reduction);
 
-      const entries = Object.entries(varStrings);
-      const values: [string, number][] = [];
-
-      for (let i = 0; i < entries.length; i++) {
-        let [varName, varString] = entries[i];
-        for (let j = 0; j < i; j++) {
-          const [otherName, otherValue] = values[j];
-          varString = varString.replaceAll(otherName, otherValue.toString());
-        }
-        const varRoll = roller.parse(varString);
-        const value = roller.rollParsed(varRoll).value;
-        attack = attack.replaceAll(varName, value.toString());
-        damage = damage.replaceAll(varName, value.toString());
-        ac = ac.replaceAll(varName, value.toString());
-        values.push([varName, value]);
-      }
-
-      return {
-        attackRoll: roller.parse(attack),
-        damageRoll: roller.parse(damage),
-        acRoll: roller.parse(ac)
-      };
+  const getRolls: GetRolls = () => {
+    const evaluated = evaluateVariables(roller, vars);
+    return {
+      acRoll: cachedAc ?? roller.parse(replaceVariables(data.setup.versus.toString(), evaluated)),
+      attackRoll: cachedAttack ?? roller.parse(replaceVariables(attackString, evaluated)),
+      costRoll: cachedCost ?? roller.parse(replaceVariables(data.setup.cost, evaluated)),
+      damageRoll: cachedDamage ?? roller.parse(replaceVariables(data.setup.damageRoll, evaluated)),
+      reductionRoll:
+        cachedReduction ?? roller.parse(replaceVariables(data.setup.reduction, evaluated))
     };
-  } else {
-    const atkParsed = roller.parse(attackString);
-    const dmgParsed = roller.parse(damageString);
-    const acParsed = roller.parse(acString);
+  };
 
-    getRolls = () => ({
-      attackRoll: atkParsed,
-      damageRoll: dmgParsed,
-      acRoll: acParsed
-    });
-  }
+  const buckets = new Map<number, { damageObservations: number; costTotal: number }>();
 
-  const buckets = new Map<number, number>();
   let numHit = 0;
   for (let i = 0; i < data.itersRequested; i++) {
-    const [result, n] = simulate(roller, getRolls, data.setup);
+    const [result, n, cost] = simulate(roller, getRolls, data.setup);
     numHit += n;
-    buckets.set(result, (buckets.get(result) ?? 0) + 1);
+    const bucket = buckets.get(result) ?? { costTotal: 0, damageObservations: 0 };
+    bucket.costTotal += cost;
+    bucket.damageObservations += 1;
+    buckets.set(result, bucket);
   }
 
   event.source?.postMessage({

@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-  export let buckets: [number, number][];
+  export let buckets: [number, number, undefined | number][];
   export let color = '#69b3a2';
   export let yticks = 10;
 
@@ -17,17 +17,21 @@
   $: usableWidth = width - kHistogramMargins * 2;
 
   $: bounds = buckets.reduce(
-    (prev, [bucket, obs]) => ({
+    (prev, [bucket, obs, cost = null]) => ({
       xMin: Math.min(prev.xMin, bucket),
       xMax: Math.max(prev.xMax, bucket),
       yMin: Math.min(prev.yMin, obs),
-      yMax: Math.max(prev.yMax, obs)
+      yMax: Math.max(prev.yMax, obs),
+      zMin: Math.min(prev.zMin, cost ?? Number.NaN),
+      zMax: Math.max(prev.zMax, cost ?? Number.NaN)
     }),
     {
       xMin: Number.POSITIVE_INFINITY,
       xMax: Number.NEGATIVE_INFINITY,
       yMin: Number.POSITIVE_INFINITY,
-      yMax: Number.NEGATIVE_INFINITY
+      yMax: Number.NEGATIVE_INFINITY,
+      zMin: Number.POSITIVE_INFINITY,
+      zMax: Number.NEGATIVE_INFINITY
     }
   );
 
@@ -35,15 +39,17 @@
 
   $: xAxisY = useableHight - kHistogramMargins - 30;
   $: yAxisX = kHistogramMargins + 30;
+  $: zAxisX = usableWidth - kHistogramMargins - 30;
 
   $: xticks = Math.min(nBuckets, 40);
-  $: xtickInterval = (usableWidth - yAxisX) / xticks;
+  $: xtickInterval = (zAxisX - yAxisX) / xticks;
   $: xtickStart = yAxisX + xtickInterval / 2;
 
   $: ytickStart = xAxisY;
+  $: ztickStart = xAxisY;
 
-  $: xtickBarOffset = xtickInterval - (usableWidth - yAxisX) / nBuckets;
-  $: barInterval = (usableWidth - yAxisX - xtickBarOffset) / nBuckets;
+  $: xtickBarOffset = xtickInterval - (zAxisX - yAxisX) / nBuckets;
+  $: barInterval = (zAxisX - yAxisX - xtickBarOffset) / nBuckets;
   $: barOffset = yAxisX + xtickBarOffset / 2;
 </script>
 
@@ -59,8 +65,11 @@
         {ylabel}
       </text>
     </g>
-    <line x1={yAxisX} x2={usableWidth} y1={xAxisY} y2={xAxisY} stroke="black" />
+    <line x1={yAxisX} x2={zAxisX} y1={xAxisY} y2={xAxisY} stroke="black" />
     <line y1={xAxisY} y2={kHistogramMargins} x1={yAxisX} x2={yAxisX} stroke="black" />
+    {#if !Number.isNaN(bounds.zMin) && !Number.isNaN(bounds.zMax) && !(bounds.zMin === 0 && bounds.zMax === 0)}
+      <line y1={xAxisY} y2={kHistogramMargins} x1={zAxisX} x2={zAxisX} stroke="black" />
+    {/if}
 
     {#each { length: xticks } as _, i}
       {@const offset = xtickStart + xtickInterval * i}
@@ -86,8 +95,23 @@
         {((i / yticks) * bounds.yMax * 100).toFixed(2)}%
       </text>
     {/each}
+    {#if !Number.isNaN(bounds.zMin) && !Number.isNaN(bounds.zMax) && !(bounds.zMin === 0 && bounds.zMax === 0)}
+      {#each { length: yticks + 1 } as _, i}
+        {@const offset = ztickStart - (xAxisY - kHistogramMargins) * (i / yticks)}
+        <line x1={zAxisX - 4} x2={zAxisX + 4} y1={offset} y2={offset} stroke="black" />
+        <text
+          x={zAxisX + 8}
+          y={offset}
+          text-anchor="start"
+          alignment-baseline="middle"
+          font-size="9"
+        >
+          {Math.floor((i / yticks) * bounds.zMax * 100) / 100}
+        </text>
+      {/each}
+    {/if}
 
-    {#each buckets as [x, h], i (x)}
+    {#each buckets as [x, h, z], i (x)}
       {@const xStart = barOffset + barInterval * (x - bounds.xMin)}
       {@const barHeight = (xAxisY - kHistogramMargins) * (h / bounds.yMax)}
       {@const textX = xStart + barInterval / 2}
@@ -108,6 +132,15 @@
             ({x}, {(h * 100).toFixed(2)}%)
           </text>
         </g>
+        {#if z !== undefined && !(bounds.zMin === 0 && bounds.zMax === 0)}
+          {@const pointY = xAxisY - (xAxisY - kHistogramMargins) * (z / bounds.zMax)}
+          <circle
+            cx={xStart + barInterval / 2}
+            cy={pointY}
+            fill="Green"
+            r={barInterval * 0.8 * 0.5 * 0.8}
+          />
+        {/if}
       </g>
     {/each}
   </g>
