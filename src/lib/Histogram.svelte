@@ -37,7 +37,7 @@
     }
   );
 
-  $: nBuckets = Math.max(0, bounds.xMax - bounds.xMin + 1);
+  $: nBuckets = Math.ceil(Math.max(0, bounds.xMax - bounds.xMin + 1));
 
   $: xAxisY = useableHight - kHistogramMargins - 30;
   $: yAxisX = kHistogramMargins + 30;
